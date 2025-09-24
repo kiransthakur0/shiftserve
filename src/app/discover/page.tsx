@@ -95,7 +95,7 @@ const mockShifts: Shift[] = [
 ];
 
 export default function DiscoverShifts() {
-  const [shifts, setShifts] = useState<Shift[]>(mockShifts);
+  const [shifts] = useState<Shift[]>(mockShifts);
   const [filteredShifts, setFilteredShifts] = useState<Shift[]>(mockShifts);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
 
@@ -109,7 +109,7 @@ export default function DiscoverShifts() {
   const roles = ["all", "Server", "Bartender", "Dishwasher", "Line Cook", "Barista", "Host"];
 
   useEffect(() => {
-    let filtered = shifts.filter(shift =>
+    const filtered = shifts.filter(shift =>
       shift.hourlyRate >= minRate &&
       shift.hourlyRate <= maxRate &&
       shift.distance <= maxDistance &&

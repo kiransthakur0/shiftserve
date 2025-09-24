@@ -52,12 +52,6 @@ export default function RestaurantOnboarding() {
     benefits: [] as string[]
   });
 
-  const experienceLevels = [
-    "Entry Level (0-1 years)",
-    "Intermediate (2-5 years)",
-    "Experienced (5+ years)",
-    "Expert (10+ years)"
-  ];
 
   const roles = [
     "Server", "Bartender", "Host/Hostess", "Busser",
@@ -70,7 +64,7 @@ export default function RestaurantOnboarding() {
     "Professional Development", "Team Events", "Uniform Provided"
   ];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number | object) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
