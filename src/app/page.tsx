@@ -48,7 +48,7 @@ export default function Home() {
             </ul>
             <Link href="/onboarding/worker">
               <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
-                Sign Up as Worker
+                For Workers
               </button>
             </Link>
           </div>
