@@ -1,58 +1,8 @@
 "use client";
 
 import { useState } from "react";
-
-interface Shift {
-  id: string;
-  role: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  hourlyRate: number;
-  urgencyLevel: "low" | "medium" | "high" | "critical";
-  bonusPercentage: number;
-  description: string;
-  requirements: string[];
-  published: boolean;
-  applicants: number;
-  status: "draft" | "published" | "filled" | "cancelled";
-  createdAt: string;
-}
-
-const mockShifts: Shift[] = [
-  {
-    id: "1",
-    role: "Server",
-    date: "2024-09-24",
-    startTime: "17:00",
-    endTime: "23:00",
-    hourlyRate: 18,
-    urgencyLevel: "high",
-    bonusPercentage: 20,
-    description: "Busy dinner service, need experienced server",
-    requirements: ["Customer Service", "POS Systems"],
-    published: true,
-    applicants: 3,
-    status: "published",
-    createdAt: "2024-09-23"
-  },
-  {
-    id: "2",
-    role: "Bartender",
-    date: "2024-09-25",
-    startTime: "16:00",
-    endTime: "00:00",
-    hourlyRate: 22,
-    urgencyLevel: "medium",
-    bonusPercentage: 10,
-    description: "Weekend evening shift",
-    requirements: ["Cocktail Making", "Wine Knowledge"],
-    published: true,
-    applicants: 1,
-    status: "published",
-    createdAt: "2024-09-22"
-  }
-];
+import { useShifts, Shift } from "../../../contexts/ShiftContext";
+import Chat from "../../../components/Chat";
 
 const roles = [
   "Server", "Bartender", "Host/Hostess", "Busser", "Line Cook",
@@ -65,9 +15,13 @@ const requirements = [
 ];
 
 export default function RestaurantDashboard() {
-  const [shifts, setShifts] = useState<Shift[]>(mockShifts);
+  const { shifts, addShift, updateShift, deleteShift, acceptApplication, declineApplication } = useShifts();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [showApplicationsModal, setShowApplicationsModal] = useState(false);
+  const [applicationsShift, setApplicationsShift] = useState<Shift | null>(null);
+  const [showChat, setShowChat] = useState(false);
+  const [chatShift, setChatShift] = useState<Shift | null>(null);
 
   const [newShift, setNewShift] = useState({
     role: "",
@@ -96,16 +50,14 @@ export default function RestaurantDashboard() {
   };
 
   const handleCreateShift = () => {
-    const shift: Shift = {
-      id: (shifts.length + 1).toString(),
+    addShift({
+      restaurantName: "Your Restaurant", // Would come from restaurant profile
+      restaurantId: "rest_current", // Would come from authenticated user
       ...newShift,
       published: false,
-      applicants: 0,
-      status: "draft",
-      createdAt: new Date().toISOString().split('T')[0]
-    };
+      status: "draft"
+    });
 
-    setShifts([...shifts, shift]);
     setShowCreateModal(false);
     setNewShift({
       role: "",
@@ -121,20 +73,18 @@ export default function RestaurantDashboard() {
   };
 
   const togglePublishShift = (shiftId: string) => {
-    setShifts(shifts.map(shift =>
-      shift.id === shiftId
-        ? {
-            ...shift,
-            published: !shift.published,
-            status: shift.published ? "draft" : "published"
-          }
-        : shift
-    ));
+    const shift = shifts.find(s => s.id === shiftId);
+    if (shift) {
+      updateShift(shiftId, {
+        published: !shift.published,
+        status: shift.published ? "draft" : "published"
+      });
+    }
   };
 
-  const deleteShift = (shiftId: string) => {
+  const handleDeleteShift = (shiftId: string) => {
     if (confirm("Are you sure you want to delete this shift?")) {
-      setShifts(shifts.filter(shift => shift.id !== shiftId));
+      deleteShift(shiftId);
     }
   };
 
@@ -153,6 +103,24 @@ export default function RestaurantDashboard() {
         ? newShift.requirements.filter(r => r !== requirement)
         : [...newShift.requirements, requirement]
     });
+  };
+
+  const handleAcceptApplication = (shiftId: string, workerId: string) => {
+    acceptApplication(shiftId, workerId);
+  };
+
+  const handleDeclineApplication = (shiftId: string, workerId: string) => {
+    declineApplication(shiftId, workerId);
+  };
+
+  const viewApplications = (shift: Shift) => {
+    setApplicationsShift(shift);
+    setShowApplicationsModal(true);
+  };
+
+  const openChat = (shift: Shift) => {
+    setChatShift(shift);
+    setShowChat(true);
   };
 
   return (
@@ -269,31 +237,51 @@ export default function RestaurantDashboard() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {shift.applicants}
+                      {shift.applications.length}
+                      {shift.applications.length > 0 && (
+                        <button
+                          onClick={() => viewApplications(shift)}
+                          className="ml-2 text-blue-600 hover:text-blue-900 text-xs underline"
+                        >
+                          View
+                        </button>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => togglePublishShift(shift.id)}
-                        className={`${
-                          shift.published
-                            ? "text-orange-600 hover:text-orange-900"
-                            : "text-green-600 hover:text-green-900"
-                        } transition-colors`}
-                      >
-                        {shift.published ? "Unpublish" : "Publish"}
-                      </button>
+                      {shift.status !== "filled" && (
+                        <button
+                          onClick={() => togglePublishShift(shift.id)}
+                          className={`${
+                            shift.published
+                              ? "text-orange-600 hover:text-orange-900"
+                              : "text-green-600 hover:text-green-900"
+                          } transition-colors`}
+                        >
+                          {shift.published ? "Unpublish" : "Publish"}
+                        </button>
+                      )}
+                      {shift.status === "filled" && shift.assignment && (
+                        <button
+                          onClick={() => openChat(shift)}
+                          className="text-blue-600 hover:text-blue-900 transition-colors"
+                        >
+                          Chat
+                        </button>
+                      )}
                       <button
                         onClick={() => setSelectedShift(shift)}
                         className="text-blue-600 hover:text-blue-900 transition-colors"
                       >
                         View
                       </button>
-                      <button
-                        onClick={() => deleteShift(shift.id)}
-                        className="text-red-600 hover:text-red-900 transition-colors"
-                      >
-                        Delete
-                      </button>
+                      {shift.status !== "filled" && (
+                        <button
+                          onClick={() => handleDeleteShift(shift.id)}
+                          className="text-red-600 hover:text-red-900 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -533,11 +521,104 @@ export default function RestaurantDashboard() {
 
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-white">Status</h4>
-                <p className="text-gray-600 dark:text-gray-400">{selectedShift.applicants} applicants</p>
+                <p className="text-gray-600 dark:text-gray-400">{selectedShift.applications.length} applicants</p>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Applications Modal */}
+      {showApplicationsModal && applicationsShift && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                Applications for {applicationsShift.role} - {applicationsShift.date}
+              </h3>
+              <button
+                onClick={() => setShowApplicationsModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6">
+              {applicationsShift.applications.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                  No applications yet
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {applicationsShift.applications.map((application) => (
+                    <div key={application.workerId} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white">
+                            {application.workerName}
+                          </h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            Applied on {new Date(application.appliedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          application.status === "pending"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : application.status === "accepted"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}>
+                          {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
+                        </span>
+                      </div>
+
+                      {application.status === "pending" && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              handleAcceptApplication(applicationsShift.id, application.workerId);
+                              setShowApplicationsModal(false);
+                            }}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => handleDeclineApplication(applicationsShift.id, application.workerId)}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      )}
+
+                      {application.status === "accepted" && (
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-3 mt-3">
+                          <p className="text-green-800 dark:text-green-200 text-sm">
+                            ✓ This worker has been accepted for this shift. A private chat is now available.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Component */}
+      {showChat && chatShift && (
+        <Chat
+          shift={chatShift}
+          currentUserId="rest_current"
+          currentUserType="restaurant"
+          onClose={() => setShowChat(false)}
+        />
       )}
     </div>
   );

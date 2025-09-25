@@ -1,103 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useShifts, Shift } from "../../contexts/ShiftContext";
+import Chat from "../../components/Chat";
 
-interface Shift {
-  id: string;
-  restaurantName: string;
-  role: string;
-  hourlyRate: number;
-  duration: string;
-  startTime: string;
-  date: string;
-  distance: number;
-  urgent: boolean;
-  description: string;
-  requirements: string[];
-  location: {
-    lat: number;
-    lng: number;
-    address: string;
-  };
-}
-
-const mockShifts: Shift[] = [
-  {
-    id: "1",
-    restaurantName: "The Blue Table",
-    role: "Server",
-    hourlyRate: 18,
-    duration: "6 hours",
-    startTime: "5:00 PM",
-    date: "Today",
-    distance: 2.3,
-    urgent: true,
-    description: "Busy dinner service, need experienced server",
-    requirements: ["Customer Service", "POS Systems"],
-    location: { lat: 40.7128, lng: -74.0060, address: "123 Main St, Downtown" }
-  },
-  {
-    id: "2",
-    restaurantName: "Mario's Kitchen",
-    role: "Bartender",
-    hourlyRate: 22,
-    duration: "8 hours",
-    startTime: "4:00 PM",
-    date: "Today",
-    distance: 1.8,
-    urgent: false,
-    description: "Evening shift at busy cocktail bar",
-    requirements: ["Cocktail Making", "Wine Knowledge"],
-    location: { lat: 40.7589, lng: -73.9851, address: "456 Broadway, Midtown" }
-  },
-  {
-    id: "3",
-    restaurantName: "Fresh Garden Bistro",
-    role: "Dishwasher",
-    hourlyRate: 16,
-    duration: "4 hours",
-    startTime: "6:00 PM",
-    date: "Tomorrow",
-    distance: 3.1,
-    urgent: false,
-    description: "Weekend dinner rush coverage",
-    requirements: ["Team Leadership"],
-    location: { lat: 40.7505, lng: -73.9934, address: "789 5th Ave, Upper East" }
-  },
-  {
-    id: "4",
-    restaurantName: "Sunset Grill",
-    role: "Line Cook",
-    hourlyRate: 20,
-    duration: "6 hours",
-    startTime: "3:00 PM",
-    date: "Today",
-    distance: 4.2,
-    urgent: true,
-    description: "Need experienced cook for busy lunch/dinner",
-    requirements: ["Food Preparation", "Multi-tasking"],
-    location: { lat: 40.7282, lng: -73.7949, address: "321 Ocean Blvd, Waterfront" }
-  },
-  {
-    id: "5",
-    restaurantName: "Coffee Corner",
-    role: "Barista",
-    hourlyRate: 15,
-    duration: "5 hours",
-    startTime: "7:00 AM",
-    date: "Tomorrow",
-    distance: 1.2,
-    urgent: false,
-    description: "Morning rush coverage needed",
-    requirements: ["Customer Service"],
-    location: { lat: 40.7614, lng: -73.9776, address: "159 Coffee St, Village" }
-  }
+// Available skills for filtering
+const availableSkills = [
+  "Customer Service", "POS Systems", "Cocktail Making", "Wine Knowledge",
+  "Food Safety Certification", "Cash Handling", "Team Leadership", "Multi-tasking",
+  "Food Preparation", "Inventory Management", "Cleaning", "Communication"
 ];
 
 export default function DiscoverShifts() {
-  const [shifts] = useState<Shift[]>(mockShifts);
-  const [filteredShifts, setFilteredShifts] = useState<Shift[]>(mockShifts);
+  const { getPublishedShifts, applyToShift } = useShifts();
+  const publishedShifts = getPublishedShifts();
+  const [filteredShifts, setFilteredShifts] = useState<Shift[]>(publishedShifts);
+
+  // Simulated current worker ID (would come from authentication)
+  const currentWorkerId = "worker_1";
+  const currentWorkerName = "John Doe";
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [showChat, setShowChat] = useState(false);
+  const [chatShift, setChatShift] = useState<Shift | null>(null);
 
   // Filter states
   const [minRate, setMinRate] = useState(15);
@@ -105,22 +29,54 @@ export default function DiscoverShifts() {
   const [maxDistance, setMaxDistance] = useState(10);
   const [selectedRole, setSelectedRole] = useState("all");
   const [showUrgentOnly, setShowUrgentOnly] = useState(false);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [skillMatchMode, setSkillMatchMode] = useState<"any" | "all">("any");
 
-  const roles = ["all", "Server", "Bartender", "Dishwasher", "Line Cook", "Barista", "Host"];
+  const roles = ["all", "Server", "Bartender", "Dishwasher", "Line Cook", "Barista", "Host/Hostess", "Busser", "Food Runner", "Kitchen Manager", "Barback"];
 
   useEffect(() => {
-    const filtered = shifts.filter(shift =>
-      shift.hourlyRate >= minRate &&
-      shift.hourlyRate <= maxRate &&
-      shift.distance <= maxDistance &&
-      (selectedRole === "all" || shift.role === selectedRole) &&
-      (!showUrgentOnly || shift.urgent)
-    );
+    const filtered = publishedShifts.filter(shift => {
+      // Basic filters
+      const rateMatch = shift.hourlyRate >= minRate && shift.hourlyRate <= maxRate;
+      const distanceMatch = !shift.distance || shift.distance <= maxDistance;
+      const roleMatch = selectedRole === "all" || shift.role === selectedRole;
+      const urgentMatch = !showUrgentOnly || shift.urgent;
+
+      // Skills filter
+      let skillsMatch = true;
+      if (selectedSkills.length > 0) {
+        if (skillMatchMode === "all") {
+          // All selected skills must be in shift requirements
+          skillsMatch = selectedSkills.every(skill => shift.requirements.includes(skill));
+        } else {
+          // Any selected skill must be in shift requirements
+          skillsMatch = selectedSkills.some(skill => shift.requirements.includes(skill));
+        }
+      }
+
+      return rateMatch && distanceMatch && roleMatch && urgentMatch && skillsMatch;
+    });
     setFilteredShifts(filtered);
-  }, [shifts, minRate, maxRate, maxDistance, selectedRole, showUrgentOnly]);
+  }, [publishedShifts, minRate, maxRate, maxDistance, selectedRole, showUrgentOnly, selectedSkills, skillMatchMode]);
 
   const handleApplyToShift = (shiftId: string) => {
-    alert(`Applied to shift ${shiftId}! This will be connected to the backend later.`);
+    const success = applyToShift(shiftId, currentWorkerId, currentWorkerName);
+    if (success) {
+      alert("Application submitted successfully!");
+    } else {
+      alert("Unable to apply. You may have already applied or the shift is no longer available.");
+    }
+  };
+
+  // Check if current worker has applied to a shift
+  const hasApplied = (shift: Shift) => {
+    return shift.applications.some(app => app.workerId === currentWorkerId);
+  };
+
+  // Get application status for current worker
+  const getApplicationStatus = (shift: Shift) => {
+    const application = shift.applications.find(app => app.workerId === currentWorkerId);
+    return application?.status;
   };
 
   return (
@@ -135,6 +91,54 @@ export default function DiscoverShifts() {
 
             {/* Filters */}
             <div className="space-y-6">
+              {/* Skills Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Filter by Skills/Requirements
+                </label>
+                <div className="mb-3">
+                  <label className="flex items-center mb-2">
+                    <input
+                      type="radio"
+                      name="skillMatch"
+                      checked={skillMatchMode === "any"}
+                      onChange={() => setSkillMatchMode("any")}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Match ANY selected skill</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="skillMatch"
+                      checked={skillMatchMode === "all"}
+                      onChange={() => setSkillMatchMode("all")}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Match ALL selected skills</span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+                  {availableSkills.map(skill => (
+                    <label key={skill} className="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedSkills.includes(skill)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedSkills([...selectedSkills, skill]);
+                          } else {
+                            setSelectedSkills(selectedSkills.filter(s => s !== skill));
+                          }
+                        }}
+                        className="mr-2 h-4 w-4 text-blue-600"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{skill}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               {/* Hourly Rate Filter */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -219,6 +223,18 @@ export default function DiscoverShifts() {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {filteredShifts.length} shifts found
               </p>
+              {selectedSkills.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-gray-400 mb-1">Filtering by skills:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedSkills.map(skill => (
+                      <span key={skill} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -310,10 +326,12 @@ export default function DiscoverShifts() {
                     </div>
                   </div>
 
-                  <div className="mb-6">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-2">Location</h4>
-                    <p className="text-gray-600 dark:text-gray-400">{selectedShift.location.address}</p>
-                  </div>
+                  {selectedShift.location && (
+                    <div className="mb-6">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Location</h4>
+                      <p className="text-gray-600 dark:text-gray-400">{selectedShift.location.address}</p>
+                    </div>
+                  )}
 
                   <div className="mb-6">
                     <h4 className="font-medium text-gray-900 dark:text-white mb-2">Description</h4>
@@ -334,12 +352,61 @@ export default function DiscoverShifts() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleApplyToShift(selectedShift.id)}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-                  >
-                    Apply for This Shift
-                  </button>
+                  {(() => {
+                    const applicationStatus = getApplicationStatus(selectedShift);
+                    const applied = hasApplied(selectedShift);
+
+                    if (selectedShift.status === "filled") {
+                      return (
+                        <button className="w-full bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg cursor-not-allowed">
+                          Position Filled
+                        </button>
+                      );
+                    }
+
+                    if (applied) {
+                      switch (applicationStatus) {
+                        case "pending":
+                          return (
+                            <button className="w-full bg-yellow-500 text-white font-semibold py-3 px-6 rounded-lg cursor-not-allowed">
+                              Application Pending
+                            </button>
+                          );
+                        case "accepted":
+                          return (
+                            <div className="space-y-2">
+                              <button className="w-full bg-green-500 text-white font-semibold py-3 px-6 rounded-lg cursor-not-allowed">
+                                Application Accepted!
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setChatShift(selectedShift);
+                                  setShowChat(true);
+                                }}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+                              >
+                                Open Chat
+                              </button>
+                            </div>
+                          );
+                        case "declined":
+                          return (
+                            <button className="w-full bg-red-500 text-white font-semibold py-3 px-6 rounded-lg cursor-not-allowed">
+                              Application Declined
+                            </button>
+                          );
+                      }
+                    }
+
+                    return (
+                      <button
+                        onClick={() => handleApplyToShift(selectedShift.id)}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+                      >
+                        Apply for This Shift
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             ) : (
@@ -368,6 +435,16 @@ export default function DiscoverShifts() {
           </div>
         </div>
       </div>
+
+      {/* Chat Component */}
+      {showChat && chatShift && (
+        <Chat
+          shift={chatShift}
+          currentUserId={currentWorkerId}
+          currentUserType="worker"
+          onClose={() => setShowChat(false)}
+        />
+      )}
     </div>
   );
 }
