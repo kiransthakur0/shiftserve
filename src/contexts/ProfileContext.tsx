@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { useShifts } from "./ShiftContext";
+import { createContext, useContext, useState, ReactNode } from "react";
+import { Shift } from "./ShiftContext";
 
 export interface Profile {
   id: string;
@@ -22,7 +22,7 @@ export interface Profile {
 interface ProfileContextType {
   profiles: Profile[];
   getProfile: (id: string) => Profile | undefined;
-  updateProfileRatings: () => void;
+  updateProfileRatings: (shifts: Shift[]) => void;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -36,7 +36,6 @@ export const useProfiles = () => {
 };
 
 export const ProfileProvider = ({ children }: { children: ReactNode }) => {
-  const { shifts } = useShifts();
   const [profiles, setProfiles] = useState<Profile[]>([
     {
       id: "rest_1",
@@ -72,7 +71,7 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     }
   ]);
 
-  const updateProfileRatings = () => {
+  const updateProfileRatings = (shifts: Shift[]) => {
     const updatedProfiles = profiles.map(profile => {
       const newRatings: Profile['ratings'] = [];
       let totalRating = 0;
@@ -128,10 +127,6 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
     return profiles.find(profile => profile.id === id);
   };
 
-  // Update profile ratings whenever shifts change
-  useEffect(() => {
-    updateProfileRatings();
-  }, [shifts]);
 
   return (
     <ProfileContext.Provider value={{

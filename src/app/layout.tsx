@@ -29,11 +29,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ShiftProvider>
-          <ProfileProvider>
+        <ProfileProvider>
+          <ShiftProvider>
             {children}
-          </ProfileProvider>
-        </ShiftProvider>
+          </ShiftProvider>
+        </ProfileProvider>
       </body>
     </html>
   );
