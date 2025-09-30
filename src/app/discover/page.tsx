@@ -1,9 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useShifts, Shift } from "../../contexts/ShiftContext";
 import Chat from "../../components/Chat";
-import ShiftMap from "../../components/ShiftMap";
+
+// Dynamic import for ShiftMap to avoid SSR issues with Leaflet
+const ShiftMap = dynamic(() => import("../../components/ShiftMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-white dark:bg-gray-800 rounded-lg flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-400">Loading map...</p>
+      </div>
+    </div>
+  ),
+});
 
 // Available skills for filtering
 const availableSkills = [
