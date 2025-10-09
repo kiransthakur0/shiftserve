@@ -16,7 +16,8 @@
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
       "Bash(timeout:*)",
-      "Bash(if not exist \"src\\lib\" mkdir \"src\\lib\")"
+      "Bash(if not exist \"src\\lib\" mkdir \"src\\lib\")",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "ask": []

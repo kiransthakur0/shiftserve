@@ -78,7 +78,7 @@ export default function DiscoverShifts() {
       setUserLocation(defaultLocation);
       generateRandomShifts(defaultLocation.lat, defaultLocation.lng);
     }
-  }, []);
+  }, [generateRandomShifts]);
 
   useEffect(() => {
     const publishedShifts = getPublishedShifts();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useShifts, Shift, ChatMessage } from "../contexts/ShiftContext";
+import { useShifts, Shift } from "../contexts/ShiftContext";
 import { useProfiles } from "../contexts/ProfileContext";
 
 interface ChatProps {

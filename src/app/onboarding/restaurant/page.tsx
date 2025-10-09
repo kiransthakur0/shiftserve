@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { geocodeAddress, createDebouncedGeocoder } from "../../../services/geocoding";
+import { createDebouncedGeocoder } from "../../../services/geocoding";
 import { useRestaurantProfiles } from "../../../context/RestaurantProfilesContext";
 import { createClient } from "@/lib/supabase/client";
 

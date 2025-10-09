@@ -90,7 +90,7 @@ export default function RestaurantDashboard() {
       const duration = calculateDuration(newShift.startTime, newShift.endTime);
 
       // Insert shift into Supabase
-      const { data: insertedShift, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('shifts')
         .insert({
           restaurant_id: restaurantId,
