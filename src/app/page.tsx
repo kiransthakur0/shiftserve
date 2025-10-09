@@ -46,9 +46,14 @@ export default function Home() {
                 Build your network
               </li>
             </ul>
-            <Link href="/onboarding/worker">
+            <Link href="/auth/signup?type=worker">
               <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
-                For Workers
+                Get Started
+              </button>
+            </Link>
+            <Link href="/auth/login?type=worker">
+              <button className="w-full mt-3 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-blue-600 dark:text-blue-400 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 border border-blue-600 dark:border-blue-400">
+                Log In
               </button>
             </Link>
           </div>
@@ -85,9 +90,14 @@ export default function Home() {
                 Reduced downtime
               </li>
             </ul>
-            <Link href="/onboarding/restaurant">
+            <Link href="/auth/signup?type=restaurant">
               <button className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
-                For Restaurants
+                Get Started
+              </button>
+            </Link>
+            <Link href="/auth/login?type=restaurant">
+              <button className="w-full mt-3 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-orange-600 dark:text-orange-400 font-semibold py-3 px-6 rounded-lg transition-colors duration-200 border border-orange-600 dark:border-orange-400">
+                Log In
               </button>
             </Link>
           </div>

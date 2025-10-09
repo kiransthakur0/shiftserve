@@ -15,7 +15,8 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(if not exist \"src\\lib\" mkdir \"src\\lib\")"
     ],
     "deny": [],
     "ask": []

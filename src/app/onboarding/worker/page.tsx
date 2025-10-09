@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const certifications = [
   "Food Safety Certification",
@@ -40,7 +41,11 @@ const roles = [
 
 export default function WorkerOnboarding() {
   const router = useRouter();
+  const supabase = createClient();
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     selectedCertifications: [] as string[],
     selectedSkills: [] as string[],
@@ -57,6 +62,18 @@ export default function WorkerOnboarding() {
       sunday: false
     }
   });
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/auth/signup?type=worker');
+      } else {
+        setUserId(user.id);
+      }
+    };
+    checkAuth();
+  }, [router, supabase]);
 
   const handleCertificationToggle = (cert: string) => {
     setFormData(prev => ({
@@ -103,11 +120,37 @@ export default function WorkerOnboarding() {
     if (step > 1) setStep(step - 1);
   };
 
-  const handleSubmit = () => {
-    console.log("Worker profile data:", formData);
-    // TODO: Save to database/state management
-    // Redirect to Discover Shifts page
-    router.push("/discover");
+  const handleSubmit = async () => {
+    if (!userId) {
+      setError("User not authenticated");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Insert worker profile
+      const { error: insertError } = await supabase
+        .from('worker_profiles')
+        .insert({
+          user_id: userId,
+          certifications: formData.selectedCertifications,
+          skills: formData.selectedSkills,
+          roles: formData.selectedRoles,
+          service_radius: formData.serviceRadius,
+          experience: formData.experience,
+          availability: formData.availability,
+        });
+
+      if (insertError) throw insertError;
+
+      // Redirect to Discover Shifts page
+      router.push("/discover");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save profile');
+      setLoading(false);
+    }
   };
 
   return (
@@ -132,6 +175,13 @@ export default function WorkerOnboarding() {
                 Step {step} of 4: {step === 1 ? "Certifications & Skills" : step === 2 ? "Preferred Roles" : step === 3 ? "Service Area & Availability" : "Review & Submit"}
               </p>
             </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
 
             {/* Step 1: Certifications & Skills */}
             {step === 1 && (
@@ -333,9 +383,10 @@ export default function WorkerOnboarding() {
                 ) : (
                   <button
                     onClick={handleSubmit}
-                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    disabled={loading}
+                    className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
                   >
-                    Complete Profile
+                    {loading ? 'Saving Profile...' : 'Complete Profile'}
                   </button>
                 )}
               </div>

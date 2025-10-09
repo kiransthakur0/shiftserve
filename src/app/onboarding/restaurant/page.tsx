@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { geocodeAddress, createDebouncedGeocoder } from "../../../services/geocoding";
 import { useRestaurantProfiles } from "../../../context/RestaurantProfilesContext";
+import { createClient } from "@/lib/supabase/client";
 
 const cuisineTypes = [
   "American", "Italian", "Mexican", "Asian", "Mediterranean",
@@ -17,8 +18,12 @@ const restaurantTypes = [
 
 export default function RestaurantOnboarding() {
   const router = useRouter();
+  const supabase = createClient();
   const { addProfile } = useRestaurantProfiles();
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [geocodedLocation, setGeocodedLocation] = useState<{ lat: number; lng: number; displayName?: string } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [formData, setFormData] = useState({
@@ -90,6 +95,19 @@ export default function RestaurantOnboarding() {
     if (step > 1) setStep(step - 1);
   };
 
+  // Check authentication
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/auth/signup?type=restaurant');
+      } else {
+        setUserId(user.id);
+      }
+    };
+    checkAuth();
+  }, [router, supabase]);
+
   // Geocode address when it changes
   useEffect(() => {
     const debouncedGeocoder = createDebouncedGeocoder(1500);
@@ -106,25 +124,65 @@ export default function RestaurantOnboarding() {
     }
   }, [formData.address]);
 
-  const handleSubmit = () => {
-    const restaurantId = "rest_current"; // In a real app, this would come from auth
+  const handleSubmit = async () => {
+    if (!userId) {
+      setError("User not authenticated");
+      return;
+    }
 
-    const restaurantProfile = {
-      id: restaurantId,
-      restaurantName: formData.restaurantName,
-      address: formData.address,
-      location: geocodedLocation || undefined,
-      cuisineType: formData.cuisineType,
-      description: formData.description,
-      operatingHours: formData.operatingHours
-    };
+    setLoading(true);
+    setError(null);
 
-    // Save to context
-    addProfile(restaurantProfile);
+    try {
+      // Create location geography point if geocoded
+      let locationWKT = null;
+      if (geocodedLocation) {
+        locationWKT = `POINT(${geocodedLocation.lng} ${geocodedLocation.lat})`;
+      }
 
-    console.log("Restaurant profile saved:", restaurantProfile);
+      // Insert restaurant profile
+      const { data: insertedProfile, error: insertError } = await supabase
+        .from('restaurant_profiles')
+        .insert({
+          user_id: userId,
+          restaurant_name: formData.restaurantName,
+          description: formData.description,
+          cuisine_type: formData.cuisineType,
+          restaurant_type: formData.restaurantType,
+          address: formData.address,
+          location: locationWKT,
+          operating_hours: formData.operatingHours,
+          pay_range: formData.payRange,
+          common_roles: formData.commonRoles,
+          benefits: formData.benefits,
+          manager_name: formData.managerName,
+          manager_phone: formData.managerPhone,
+          manager_email: formData.managerEmail,
+        })
+        .select()
+        .single();
 
-    router.push("/restaurant/dashboard");
+      if (insertError) throw insertError;
+
+      // Also save to context for local state management
+      const restaurantProfile = {
+        id: insertedProfile.id,
+        restaurantName: formData.restaurantName,
+        address: formData.address,
+        location: geocodedLocation || undefined,
+        cuisineType: formData.cuisineType,
+        description: formData.description,
+        operatingHours: formData.operatingHours
+      };
+
+      addProfile(restaurantProfile);
+
+      // Redirect to restaurant dashboard
+      router.push("/restaurant/dashboard");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save restaurant profile');
+      setLoading(false);
+    }
   };
 
   return (
@@ -149,6 +207,13 @@ export default function RestaurantOnboarding() {
                 Step {step} of 4: {step === 1 ? "Restaurant Information" : step === 2 ? "Manager Details" : step === 3 ? "Business Operations" : "Hiring Preferences"}
               </p>
             </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
 
             {/* Step 1: Restaurant Information */}
             {step === 1 && (
@@ -546,9 +611,10 @@ export default function RestaurantOnboarding() {
                 ) : (
                   <button
                     onClick={handleSubmit}
-                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    disabled={loading}
+                    className="px-6 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
                   >
-                    Create Restaurant Profile
+                    {loading ? 'Saving Profile...' : 'Create Restaurant Profile'}
                   </button>
                 )}
               </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useShifts, Shift } from "../../../contexts/ShiftContext";
 import { useRestaurantProfiles } from "../../../context/RestaurantProfilesContext";
+import { createClient } from "@/lib/supabase/client";
 import Chat from "../../../components/Chat";
 
 const roles = [
@@ -16,16 +17,39 @@ const requirements = [
 ];
 
 export default function RestaurantDashboard() {
+  const supabase = createClient();
   const { shifts, addShift, updateShift, deleteShift, acceptApplication, declineApplication } = useShifts();
   const { getProfile } = useRestaurantProfiles();
-  const currentRestaurantId = "rest_current"; // Would come from auth
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const currentRestaurantId = "rest_current"; // Legacy - would come from auth
   const restaurantProfile = getProfile(currentRestaurantId);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [showApplicationsModal, setShowApplicationsModal] = useState(false);
   const [applicationsShift, setApplicationsShift] = useState<Shift | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [chatShift, setChatShift] = useState<Shift | null>(null);
+
+  // Get restaurant profile ID on mount
+  useEffect(() => {
+    const fetchRestaurantProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('restaurant_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profile) {
+          setRestaurantId(profile.id);
+        }
+      }
+    };
+    fetchRestaurantProfile();
+  }, [supabase]);
 
   const [newShift, setNewShift] = useState({
     role: "",
@@ -53,39 +77,74 @@ export default function RestaurantDashboard() {
     critical: 30
   };
 
-  const handleCreateShift = () => {
-    const shiftId = `shift_${Date.now()}`;
-    const duration = calculateDuration(newShift.startTime, newShift.endTime);
+  const handleCreateShift = async () => {
+    if (!restaurantId) {
+      setError("Restaurant profile not found");
+      return;
+    }
 
-    const shift = {
-      restaurantName: restaurantProfile?.restaurantName || "Your Restaurant",
-      restaurantId: currentRestaurantId,
-      ...newShift,
-      published: false,
-      status: "draft" as const,
-      // Use restaurant's location from profile if available
-      location: restaurantProfile?.location && restaurantProfile?.address ? {
-        lat: restaurantProfile.location.lat,
-        lng: restaurantProfile.location.lng,
-        address: restaurantProfile.address
-      } : undefined
-    };
+    setLoading(true);
+    setError(null);
 
-    // Add to local context
-    addShift(shift);
+    try {
+      const duration = calculateDuration(newShift.startTime, newShift.endTime);
 
-    setShowCreateModal(false);
-    setNewShift({
-      role: "",
-      date: "",
-      startTime: "",
-      endTime: "",
-      hourlyRate: 15,
-      urgencyLevel: "medium",
-      bonusPercentage: 0,
-      description: "",
-      requirements: []
-    });
+      // Insert shift into Supabase
+      const { data: insertedShift, error: insertError } = await supabase
+        .from('shifts')
+        .insert({
+          restaurant_id: restaurantId,
+          restaurant_name: restaurantProfile?.restaurantName || "Your Restaurant",
+          role: newShift.role,
+          hourly_rate: newShift.hourlyRate,
+          duration: duration,
+          start_time: newShift.startTime,
+          shift_date: newShift.date,
+          urgent: newShift.urgencyLevel === 'high' || newShift.urgencyLevel === 'critical',
+          description: newShift.description,
+          requirements: newShift.requirements,
+          urgency_level: newShift.urgencyLevel,
+          bonus_percentage: newShift.bonusPercentage,
+          status: 'draft'
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Also add to local context for immediate UI update
+      const shift = {
+        restaurantName: restaurantProfile?.restaurantName || "Your Restaurant",
+        restaurantId: currentRestaurantId,
+        ...newShift,
+        published: false,
+        status: "draft" as const,
+        location: restaurantProfile?.location && restaurantProfile?.address ? {
+          lat: restaurantProfile.location.lat,
+          lng: restaurantProfile.location.lng,
+          address: restaurantProfile.address
+        } : undefined
+      };
+
+      addShift(shift);
+
+      setShowCreateModal(false);
+      setNewShift({
+        role: "",
+        date: "",
+        startTime: "",
+        endTime: "",
+        hourlyRate: 15,
+        urgencyLevel: "medium",
+        bonusPercentage: 0,
+        description: "",
+        requirements: []
+      });
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create shift');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const calculateDuration = (start: string, end: string): string => {
@@ -333,6 +392,12 @@ export default function RestaurantDashboard() {
             </div>
 
             <div className="p-6 space-y-6">
+              {/* Error Display */}
+              {error && (
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -483,9 +548,10 @@ export default function RestaurantDashboard() {
               </button>
               <button
                 onClick={handleCreateShift}
-                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+                disabled={loading}
+                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
               >
-                Create Shift
+                {loading ? 'Creating Shift...' : 'Create Shift'}
               </button>
             </div>
           </div>
