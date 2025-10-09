@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ShiftProvider } from "../contexts/ShiftContext";
 import { ProfileProvider } from "../contexts/ProfileContext";
+import { RestaurantProfilesProvider } from "../context/RestaurantProfilesContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ShiftBnB",
+  title: "ShiftServe",
   description: "Connect restaurants with last-minute shift coverage",
 };
 
@@ -30,9 +31,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ProfileProvider>
-          <ShiftProvider>
-            {children}
-          </ShiftProvider>
+          <RestaurantProfilesProvider>
+            <ShiftProvider>
+              {children}
+            </ShiftProvider>
+          </RestaurantProfilesProvider>
         </ProfileProvider>
       </body>
     </html>

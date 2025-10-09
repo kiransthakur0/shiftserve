@@ -6,7 +6,7 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16 flex flex-col items-center justify-center min-h-screen">
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-4">
-            ShiftBnB
+            ShiftServe
           </h1>
           <p className="text-xl sm:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl">
             Connect restaurants with last-minute shift coverage
@@ -95,7 +95,7 @@ export default function Home() {
 
         <div className="mt-12 text-center">
           <p className="text-gray-600 dark:text-gray-400">
-            Join thousands of restaurants and workers already using ShiftBnB
+            Join thousands of restaurants and workers already using ShiftServe
           </p>
         </div>
       </div>

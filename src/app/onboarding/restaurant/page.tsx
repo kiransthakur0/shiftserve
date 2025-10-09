@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { geocodeAddress, createDebouncedGeocoder } from "../../../services/geocoding";
+import { useRestaurantProfiles } from "../../../context/RestaurantProfilesContext";
 
 const cuisineTypes = [
   "American", "Italian", "Mexican", "Asian", "Mediterranean",
@@ -15,7 +17,10 @@ const restaurantTypes = [
 
 export default function RestaurantOnboarding() {
   const router = useRouter();
+  const { addProfile } = useRestaurantProfiles();
   const [step, setStep] = useState(1);
+  const [geocodedLocation, setGeocodedLocation] = useState<{ lat: number; lng: number; displayName?: string } | null>(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
   const [formData, setFormData] = useState({
     // Restaurant Basic Info
     restaurantName: "",
@@ -85,9 +90,40 @@ export default function RestaurantOnboarding() {
     if (step > 1) setStep(step - 1);
   };
 
+  // Geocode address when it changes
+  useEffect(() => {
+    const debouncedGeocoder = createDebouncedGeocoder(1500);
+
+    if (formData.address && formData.address.trim().length > 5) {
+      setIsGeocoding(true);
+      debouncedGeocoder(formData.address, (result) => {
+        setGeocodedLocation(result);
+        setIsGeocoding(false);
+      });
+    } else {
+      setGeocodedLocation(null);
+      setIsGeocoding(false);
+    }
+  }, [formData.address]);
+
   const handleSubmit = () => {
-    console.log("Restaurant profile data:", formData);
-    // TODO: Save to database/state management
+    const restaurantId = "rest_current"; // In a real app, this would come from auth
+
+    const restaurantProfile = {
+      id: restaurantId,
+      restaurantName: formData.restaurantName,
+      address: formData.address,
+      location: geocodedLocation || undefined,
+      cuisineType: formData.cuisineType,
+      description: formData.description,
+      operatingHours: formData.operatingHours
+    };
+
+    // Save to context
+    addProfile(restaurantProfile);
+
+    console.log("Restaurant profile saved:", restaurantProfile);
+
     router.push("/restaurant/dashboard");
   };
 
@@ -156,6 +192,21 @@ export default function RestaurantOnboarding() {
                     className="w-full p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Full restaurant address"
                   />
+                  {isGeocoding && (
+                    <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                      📍 Finding location...
+                    </p>
+                  )}
+                  {geocodedLocation && !isGeocoding && (
+                    <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                      ✓ Location found: {geocodedLocation.lat.toFixed(4)}, {geocodedLocation.lng.toFixed(4)}
+                    </p>
+                  )}
+                  {!geocodedLocation && !isGeocoding && formData.address.length > 5 && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      Unable to find location for this address
+                    </p>
+                  )}
                 </div>
 
                 <div>

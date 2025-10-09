@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ShiftBnB is a Next.js 15 application that connects restaurants with workers for last-minute shift coverage. The application uses React 19, TypeScript, and Tailwind CSS v4.
+ShiftServe is a Next.js 15 application that connects restaurants with workers for last-minute shift coverage. The application uses React 19, TypeScript, and Tailwind CSS v4.
 
 ## Development Commands
 

@@ -110,6 +110,7 @@ interface ShiftMapProps {
   maxDistance: number;
   selectedShift?: Shift | null;
   onShiftSelect?: (shift: Shift) => void;
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 // Component to recenter map when location changes
@@ -121,14 +122,25 @@ function RecenterMap({ lat, lng }: { lat: number; lng: number }) {
   return null;
 }
 
-export default function ShiftMap({ shifts, maxDistance, selectedShift, onShiftSelect }: ShiftMapProps) {
+export default function ShiftMap({ shifts, maxDistance, selectedShift, onShiftSelect, userLocation }: ShiftMapProps) {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [tracking, setTracking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
-  // Get user's geolocation on component mount
+  // Use provided userLocation if available
   useEffect(() => {
+    if (userLocation) {
+      setLocation({
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        timestamp: Date.now()
+      });
+      setIsLoadingLocation(false);
+      return;
+    }
+
+    // Otherwise get user's geolocation on component mount
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by this browser');
       setIsLoadingLocation(false);
@@ -174,7 +186,7 @@ export default function ShiftMap({ shifts, maxDistance, selectedShift, onShiftSe
       },
       options
     );
-  }, []);
+  }, [userLocation]);
 
   // Live tracking effect
   useEffect(() => {

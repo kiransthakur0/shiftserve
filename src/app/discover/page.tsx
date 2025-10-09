@@ -26,9 +26,10 @@ const availableSkills = [
 ];
 
 export default function DiscoverShifts() {
-  const { getPublishedShifts, applyToShift } = useShifts();
-  const publishedShifts = getPublishedShifts();
-  const [filteredShifts, setFilteredShifts] = useState<Shift[]>(publishedShifts);
+  const { applyToShift, getPublishedShifts, shifts, generateRandomShifts } = useShifts();
+  const [filteredShifts, setFilteredShifts] = useState<Shift[]>([]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // Simulated current worker ID (would come from authentication)
   const currentWorkerId = "worker_1";
@@ -40,7 +41,7 @@ export default function DiscoverShifts() {
   // Filter states
   const [minRate, setMinRate] = useState(15);
   const [maxRate, setMaxRate] = useState(25);
-  const [maxDistance, setMaxDistance] = useState(10);
+  const [maxDistance, setMaxDistance] = useState(50);
   const [selectedRole, setSelectedRole] = useState("all");
   const [showUrgentOnly, setShowUrgentOnly] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
@@ -48,7 +49,39 @@ export default function DiscoverShifts() {
 
   const roles = ["all", "Server", "Bartender", "Dishwasher", "Line Cook", "Barista", "Host/Hostess", "Busser", "Food Runner", "Kitchen Manager", "Barback"];
 
+  // Get user's geolocation on mount
   useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setUserLocation(location);
+          // Generate random shifts based on user's location
+          generateRandomShifts(location.lat, location.lng);
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          setLocationError("Unable to get your location. Using default location.");
+          // Use a default location if geolocation fails (e.g., New York City)
+          const defaultLocation = { lat: 40.7128, lng: -74.0060 };
+          setUserLocation(defaultLocation);
+          generateRandomShifts(defaultLocation.lat, defaultLocation.lng);
+        }
+      );
+    } else {
+      setLocationError("Geolocation is not supported by your browser.");
+      // Use default location
+      const defaultLocation = { lat: 40.7128, lng: -74.0060 };
+      setUserLocation(defaultLocation);
+      generateRandomShifts(defaultLocation.lat, defaultLocation.lng);
+    }
+  }, []);
+
+  useEffect(() => {
+    const publishedShifts = getPublishedShifts();
     const filtered = publishedShifts.filter(shift => {
       // Basic filters
       const rateMatch = shift.hourlyRate >= minRate && shift.hourlyRate <= maxRate;
@@ -71,7 +104,7 @@ export default function DiscoverShifts() {
       return rateMatch && distanceMatch && roleMatch && urgentMatch && skillsMatch;
     });
     setFilteredShifts(filtered);
-  }, [publishedShifts, minRate, maxRate, maxDistance, selectedRole, showUrgentOnly, selectedSkills, skillMatchMode]);
+  }, [shifts, minRate, maxRate, maxDistance, selectedRole, showUrgentOnly, selectedSkills, skillMatchMode, getPublishedShifts]);
 
   const handleApplyToShift = (shiftId: string) => {
     const success = applyToShift(shiftId, currentWorkerId, currentWorkerName);
@@ -191,8 +224,8 @@ export default function DiscoverShifts() {
                 </label>
                 <input
                   type="range"
-                  min="1"
-                  max="25"
+                  min="10"
+                  max="50"
                   value={maxDistance}
                   onChange={(e) => setMaxDistance(parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
@@ -265,7 +298,7 @@ export default function DiscoverShifts() {
                 {filteredShifts.map((shift) => (
                   <div
                     key={shift.id}
-                    onClick={() => setSelectedShift(shift)}
+                    onClick={() => setSelectedShift(selectedShift?.id === shift.id ? null : shift)}
                     className={`p-4 border rounded-lg cursor-pointer transition-all ${
                       selectedShift?.id === shift.id
                         ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
@@ -426,11 +459,17 @@ export default function DiscoverShifts() {
             ) : (
               /* Interactive Map */
               <div className="p-4 h-full">
+                {locationError && (
+                  <div className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 p-3 rounded-lg mb-4">
+                    {locationError}
+                  </div>
+                )}
                 <ShiftMap
                   shifts={filteredShifts}
                   maxDistance={maxDistance}
                   selectedShift={selectedShift}
                   onShiftSelect={setSelectedShift}
+                  userLocation={userLocation}
                 />
               </div>
             )}

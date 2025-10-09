@@ -75,6 +75,7 @@ interface ShiftContextType {
   rateShift: (shiftId: string, raterType: "restaurant" | "worker", rating: number, comment?: string) => void;
   getShiftsByRestaurant: (restaurantId: string) => Shift[];
   getShiftsByWorker: (workerId: string) => Shift[];
+  generateRandomShifts: (userLat: number, userLng: number) => void;
 }
 
 const ShiftContext = createContext<ShiftContextType | undefined>(undefined);
@@ -88,56 +89,7 @@ export const useShifts = () => {
 };
 
 export const ShiftProvider = ({ children }: { children: ReactNode }) => {
-  const [shifts, setShifts] = useState<Shift[]>([
-    {
-      id: "1",
-      restaurantName: "The Blue Table",
-      restaurantId: "rest_1",
-      role: "Server",
-      date: "2024-09-24",
-      startTime: "17:00",
-      endTime: "23:00",
-      hourlyRate: 18,
-      urgencyLevel: "high",
-      bonusPercentage: 20,
-      description: "Busy dinner service, need experienced server",
-      requirements: ["Customer Service", "POS Systems"],
-      published: true,
-      applicants: 0,
-      status: "published",
-      createdAt: "2024-09-23",
-      duration: "6 hours",
-      distance: 2.3,
-      urgent: true,
-      location: { lat: 40.7128, lng: -74.0060, address: "123 Main St, Downtown" },
-      applications: [],
-      chatMessages: []
-    },
-    {
-      id: "2",
-      restaurantName: "Mario's Kitchen",
-      restaurantId: "rest_2",
-      role: "Bartender",
-      date: "2024-09-25",
-      startTime: "16:00",
-      endTime: "00:00",
-      hourlyRate: 22,
-      urgencyLevel: "medium",
-      bonusPercentage: 10,
-      description: "Weekend evening shift",
-      requirements: ["Cocktail Making", "Wine Knowledge"],
-      published: true,
-      applicants: 0,
-      status: "published",
-      createdAt: "2024-09-22",
-      duration: "8 hours",
-      distance: 1.8,
-      urgent: false,
-      location: { lat: 40.7589, lng: -73.9851, address: "456 Broadway, Midtown" },
-      applications: [],
-      chatMessages: []
-    }
-  ]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
 
   const addShift = (shiftData: Omit<Shift, 'id' | 'createdAt' | 'applicants' | 'applications' | 'chatMessages'>) => {
     const newShift: Shift = {
@@ -149,16 +101,12 @@ export const ShiftProvider = ({ children }: { children: ReactNode }) => {
       chatMessages: [],
       // Calculate duration
       duration: calculateDuration(shiftData.startTime, shiftData.endTime),
-      // Default distance for new shifts (would be calculated based on restaurant location)
-      distance: Math.round(Math.random() * 5 + 1),
+      // Default distance for new shifts (would be calculated based on worker's location and restaurant location)
+      distance: shiftData.location ? Math.round(Math.random() * 5 + 1) : undefined,
       // Set urgent flag based on urgency level
       urgent: shiftData.urgencyLevel === "high" || shiftData.urgencyLevel === "critical",
-      // Default location (would be set based on restaurant profile)
-      location: {
-        lat: 40.7128 + (Math.random() - 0.5) * 0.1,
-        lng: -74.0060 + (Math.random() - 0.5) * 0.1,
-        address: `${Math.floor(Math.random() * 999) + 100} Random St, NYC`
-      }
+      // Use provided location or undefined (will require location to be set when creating shift)
+      location: shiftData.location
     };
 
     setShifts(prev => [...prev, newShift]);
@@ -327,6 +275,116 @@ export const ShiftProvider = ({ children }: { children: ReactNode }) => {
     return `${diffHours} hours`;
   };
 
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 3959; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Generate a random location at a specific distance from a point
+  const generateLocationAtDistance = (lat: number, lng: number, distanceMiles: number) => {
+    const R = 3959; // Earth's radius in miles
+    const randomAngle = Math.random() * 2 * Math.PI;
+
+    const distanceRadians = distanceMiles / R;
+    const latRadians = lat * Math.PI / 180;
+    const lngRadians = lng * Math.PI / 180;
+
+    const newLatRadians = Math.asin(
+      Math.sin(latRadians) * Math.cos(distanceRadians) +
+      Math.cos(latRadians) * Math.sin(distanceRadians) * Math.cos(randomAngle)
+    );
+
+    const newLngRadians = lngRadians + Math.atan2(
+      Math.sin(randomAngle) * Math.sin(distanceRadians) * Math.cos(latRadians),
+      Math.cos(distanceRadians) - Math.sin(latRadians) * Math.sin(newLatRadians)
+    );
+
+    return {
+      lat: newLatRadians * 180 / Math.PI,
+      lng: newLngRadians * 180 / Math.PI
+    };
+  };
+
+  const generateRandomShifts = (userLat: number, userLng: number) => {
+    const restaurantNames = [
+      "The Blue Table", "Mario's Kitchen", "Sunset Bistro", "Harbor Grill",
+      "Maple Street Cafe", "Golden Wok", "The Garden Room", "Riverside Tavern",
+      "Corner Bakery", "Ocean View Restaurant"
+    ];
+
+    const roles = ["Server", "Bartender", "Dishwasher", "Line Cook", "Busser", "Host/Hostess"];
+    const requirements = [
+      ["Customer Service", "POS Systems"],
+      ["Cocktail Making", "Wine Knowledge"],
+      ["Food Safety Certification", "Cash Handling"],
+      ["Team Leadership", "Multi-tasking"],
+      ["Food Preparation", "Inventory Management"]
+    ];
+
+    const distances = [10, 20, 30];
+    const newShifts: Shift[] = [];
+
+    distances.forEach((targetDistance, index) => {
+      const location = generateLocationAtDistance(userLat, userLng, targetDistance);
+      const actualDistance = calculateDistance(userLat, userLng, location.lat, location.lng);
+
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dateStr = tomorrow.toISOString().split('T')[0];
+
+      const role = roles[Math.floor(Math.random() * roles.length)];
+      const hourlyRate = Math.floor(Math.random() * 10) + 15; // $15-$24
+      const urgencyLevels: Array<"low" | "medium" | "high" | "critical"> = ["low", "medium", "high", "critical"];
+      const urgencyLevel = urgencyLevels[Math.floor(Math.random() * urgencyLevels.length)];
+      const urgent = urgencyLevel === "high" || urgencyLevel === "critical";
+
+      const shift: Shift = {
+        id: `generated_${Date.now()}_${index}`,
+        restaurantName: restaurantNames[Math.floor(Math.random() * restaurantNames.length)],
+        restaurantId: `rest_gen_${index}`,
+        role,
+        date: dateStr,
+        startTime: "17:00",
+        endTime: "23:00",
+        hourlyRate,
+        urgencyLevel,
+        bonusPercentage: urgencyLevel === "critical" ? 30 : urgencyLevel === "high" ? 15 : urgencyLevel === "medium" ? 5 : 0,
+        description: `${urgent ? "Urgent! " : ""}We need a ${role.toLowerCase()} for tomorrow's dinner service.`,
+        requirements: requirements[Math.floor(Math.random() * requirements.length)],
+        published: true,
+        applicants: 0,
+        status: "published",
+        createdAt: new Date().toISOString().split('T')[0],
+        duration: "6 hours",
+        distance: Math.round(actualDistance * 10) / 10,
+        urgent,
+        location: {
+          lat: location.lat,
+          lng: location.lng,
+          address: `${Math.floor(Math.random() * 9000) + 1000} ${["Main", "Oak", "Maple", "Pine", "Cedar"][Math.floor(Math.random() * 5)]} St`
+        },
+        applications: [],
+        chatMessages: []
+      };
+
+      newShifts.push(shift);
+    });
+
+    setShifts(prev => {
+      // Remove old generated shifts and add new ones
+      const nonGeneratedShifts = prev.filter(s => !s.id.startsWith('generated_'));
+      return [...nonGeneratedShifts, ...newShifts];
+    });
+  };
+
   return (
     <ShiftContext.Provider value={{
       shifts,
@@ -341,7 +399,8 @@ export const ShiftProvider = ({ children }: { children: ReactNode }) => {
       markShiftCompleted,
       rateShift,
       getShiftsByRestaurant,
-      getShiftsByWorker
+      getShiftsByWorker,
+      generateRandomShifts
     }}>
       {children}
     </ShiftContext.Provider>

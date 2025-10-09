@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useShifts, Shift } from "../../../contexts/ShiftContext";
+import { useRestaurantProfiles } from "../../../context/RestaurantProfilesContext";
 import Chat from "../../../components/Chat";
 
 const roles = [
@@ -16,6 +17,9 @@ const requirements = [
 
 export default function RestaurantDashboard() {
   const { shifts, addShift, updateShift, deleteShift, acceptApplication, declineApplication } = useShifts();
+  const { getProfile } = useRestaurantProfiles();
+  const currentRestaurantId = "rest_current"; // Would come from auth
+  const restaurantProfile = getProfile(currentRestaurantId);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [showApplicationsModal, setShowApplicationsModal] = useState(false);
@@ -50,13 +54,25 @@ export default function RestaurantDashboard() {
   };
 
   const handleCreateShift = () => {
-    addShift({
-      restaurantName: "Your Restaurant", // Would come from restaurant profile
-      restaurantId: "rest_current", // Would come from authenticated user
+    const shiftId = `shift_${Date.now()}`;
+    const duration = calculateDuration(newShift.startTime, newShift.endTime);
+
+    const shift = {
+      restaurantName: restaurantProfile?.restaurantName || "Your Restaurant",
+      restaurantId: currentRestaurantId,
       ...newShift,
       published: false,
-      status: "draft"
-    });
+      status: "draft" as const,
+      // Use restaurant's location from profile if available
+      location: restaurantProfile?.location && restaurantProfile?.address ? {
+        lat: restaurantProfile.location.lat,
+        lng: restaurantProfile.location.lng,
+        address: restaurantProfile.address
+      } : undefined
+    };
+
+    // Add to local context
+    addShift(shift);
 
     setShowCreateModal(false);
     setNewShift({
@@ -72,13 +88,30 @@ export default function RestaurantDashboard() {
     });
   };
 
+  const calculateDuration = (start: string, end: string): string => {
+    if (!start || !end) return "0h";
+    const [startHour, startMin] = start.split(':').map(Number);
+    const [endHour, endMin] = end.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+    const durationMinutes = endMinutes - startMinutes;
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  };
+
   const togglePublishShift = (shiftId: string) => {
     const shift = shifts.find(s => s.id === shiftId);
     if (shift) {
+      const newPublished = !shift.published;
+      const newStatus = shift.published ? "draft" : "published";
+
+      // Update local context
       updateShift(shiftId, {
-        published: !shift.published,
-        status: shift.published ? "draft" : "published"
+        published: newPublished,
+        status: newStatus
       });
+
     }
   };
 
