@@ -18,7 +18,9 @@
       "Bash(timeout:*)",
       "Bash(if not exist \"src\\lib\" mkdir \"src\\lib\")",
       "Bash(tee:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)"
     ],
     "deny": [],
     "ask": []
