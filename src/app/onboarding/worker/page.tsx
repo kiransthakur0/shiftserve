@@ -41,7 +41,6 @@ const roles = [
 
 export default function WorkerOnboarding() {
   const router = useRouter();
-  const supabase = createClient();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +64,7 @@ export default function WorkerOnboarding() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push('/auth/signup?type=worker');
@@ -73,7 +73,7 @@ export default function WorkerOnboarding() {
       }
     };
     checkAuth();
-  }, [router, supabase]);
+  }, [router]);
 
   const handleCertificationToggle = (cert: string) => {
     setFormData(prev => ({
@@ -130,6 +130,8 @@ export default function WorkerOnboarding() {
     setError(null);
 
     try {
+      const supabase = createClient();
+
       // Insert worker profile
       const { error: insertError } = await supabase
         .from('worker_profiles')

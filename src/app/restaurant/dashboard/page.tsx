@@ -17,7 +17,6 @@ const requirements = [
 ];
 
 export default function RestaurantDashboard() {
-  const supabase = createClient();
   const { shifts, addShift, updateShift, deleteShift, acceptApplication, declineApplication } = useShifts();
   const { getProfile } = useRestaurantProfiles();
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
@@ -35,6 +34,7 @@ export default function RestaurantDashboard() {
   // Get restaurant profile ID on mount
   useEffect(() => {
     const fetchRestaurantProfile = async () => {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
@@ -49,7 +49,7 @@ export default function RestaurantDashboard() {
       }
     };
     fetchRestaurantProfile();
-  }, [supabase]);
+  }, []);
 
   const [newShift, setNewShift] = useState({
     role: "",
@@ -87,6 +87,7 @@ export default function RestaurantDashboard() {
     setError(null);
 
     try {
+      const supabase = createClient();
       const duration = calculateDuration(newShift.startTime, newShift.endTime);
 
       // Insert shift into Supabase

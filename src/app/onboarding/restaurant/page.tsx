@@ -18,7 +18,6 @@ const restaurantTypes = [
 
 export default function RestaurantOnboarding() {
   const router = useRouter();
-  const supabase = createClient();
   const { addProfile } = useRestaurantProfiles();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -98,6 +97,7 @@ export default function RestaurantOnboarding() {
   // Check authentication
   useEffect(() => {
     const checkAuth = async () => {
+      const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push('/auth/signup?type=restaurant');
@@ -106,7 +106,7 @@ export default function RestaurantOnboarding() {
       }
     };
     checkAuth();
-  }, [router, supabase]);
+  }, [router]);
 
   // Geocode address when it changes
   useEffect(() => {
@@ -134,6 +134,8 @@ export default function RestaurantOnboarding() {
     setError(null);
 
     try {
+      const supabase = createClient();
+
       // Create location geography point if geocoded
       let locationWKT = null;
       if (geocodedLocation) {
