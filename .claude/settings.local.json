@@ -20,7 +20,9 @@
       "Bash(tee:*)",
       "Bash(cat:*)",
       "Bash(node:*)",
-      "Bash(npm:*)"
+      "Bash(npm:*)",
+      "Bash(if not exist \"src\\app\\worker\" mkdir \"src\\app\\worker\")",
+      "Bash(if not exist \"src\\app\\worker\\home\" mkdir \"src\\app\\worker\\home\")"
     ],
     "deny": [],
     "ask": []

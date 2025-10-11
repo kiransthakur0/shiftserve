@@ -163,23 +163,8 @@ export default function ShiftMap({ shifts, maxDistance, selectedShift, onShiftSe
         setError(null);
         setIsLoadingLocation(false);
       },
-      (error) => {
-        console.warn("Geolocation error:", error.message);
-        let errorMessage = "Unable to get your location";
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "Location access denied. Using default location.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable. Using default location.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out. Using default location.";
-            break;
-        }
-
-        setError(errorMessage);
+      () => {
+        setError("Unable to get your location. Using default location.");
         // Fall back to Providence, RI (center of New England)
         setLocation({ lat: 41.8240, lng: -71.4128, timestamp: Date.now() });
         setIsLoadingLocation(false);
@@ -206,8 +191,8 @@ export default function ShiftMap({ shifts, maxDistance, selectedShift, onShiftSe
         });
         setError(null);
       },
-      (error) => {
-        setError(`Tracking error: ${error.message}`);
+      () => {
+        setError('Unable to track your location');
       },
       {
         enableHighAccuracy: true,
@@ -238,8 +223,8 @@ export default function ShiftMap({ shifts, maxDistance, selectedShift, onShiftSe
         setError(null);
         setIsLoadingLocation(false);
       },
-      (error) => {
-        setError(`Error: ${error.message}`);
+      () => {
+        setError('Unable to get your location');
         setIsLoadingLocation(false);
       }
     );

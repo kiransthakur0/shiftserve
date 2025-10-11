@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useShifts, Shift } from "../../contexts/ShiftContext";
 import Chat from "../../components/Chat";
+import Navigation from "../../components/Navigation";
 
 // Dynamic import for ShiftMap to avoid SSR issues with Leaflet
 const ShiftMap = dynamic(() => import("../../components/ShiftMap"), {
@@ -26,7 +27,7 @@ const availableSkills = [
 ];
 
 export default function DiscoverShifts() {
-  const { applyToShift, getPublishedShifts, shifts, generateRandomShifts } = useShifts();
+  const { applyToShift, getPublishedShifts, shifts } = useShifts();
   const [filteredShifts, setFilteredShifts] = useState<Shift[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -59,16 +60,12 @@ export default function DiscoverShifts() {
             lng: position.coords.longitude
           };
           setUserLocation(location);
-          // Generate random shifts based on user's location
-          generateRandomShifts(location.lat, location.lng);
         },
-        (error) => {
-          console.error("Error getting location:", error);
+        () => {
           setLocationError("Unable to get your location. Using default location.");
           // Use a default location if geolocation fails (e.g., New York City)
           const defaultLocation = { lat: 40.7128, lng: -74.0060 };
           setUserLocation(defaultLocation);
-          generateRandomShifts(defaultLocation.lat, defaultLocation.lng);
         }
       );
     } else {
@@ -76,9 +73,8 @@ export default function DiscoverShifts() {
       // Use default location
       const defaultLocation = { lat: 40.7128, lng: -74.0060 };
       setUserLocation(defaultLocation);
-      generateRandomShifts(defaultLocation.lat, defaultLocation.lng);
     }
-  }, [generateRandomShifts]);
+  }, []);
 
   useEffect(() => {
     const publishedShifts = getPublishedShifts();
@@ -128,6 +124,7 @@ export default function DiscoverShifts() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navigation userType="worker" />
       <div className="flex h-screen">
         {/* Filters Sidebar */}
         <div className="w-80 bg-white dark:bg-gray-800 shadow-lg overflow-y-auto">

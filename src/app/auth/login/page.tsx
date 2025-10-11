@@ -30,17 +30,16 @@ function LoginForm() {
       if (error) throw error
 
       if (data.user) {
-        // Check user type and redirect appropriately
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('user_type')
-          .eq('id', data.user.id)
-          .single()
+        // Check user type from metadata and redirect appropriately
+        const userType = data.user.user_metadata?.user_type || 'worker'
 
-        if (profile?.user_type === 'worker') {
+        if (userType === 'worker') {
           router.push('/discover')
-        } else {
+        } else if (userType === 'restaurant') {
           router.push('/restaurant/dashboard')
+        } else {
+          // Default to worker if user_type is not set
+          router.push('/discover')
         }
       }
     } catch (err: unknown) {

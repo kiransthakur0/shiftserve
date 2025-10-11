@@ -5,6 +5,7 @@ import { useShifts, Shift } from "../../../contexts/ShiftContext";
 import { useRestaurantProfiles } from "../../../context/RestaurantProfilesContext";
 import { createClient } from "@/lib/supabase/client";
 import Chat from "../../../components/Chat";
+import Navigation from "../../../components/Navigation";
 
 const roles = [
   "Server", "Bartender", "Host/Hostess", "Busser", "Line Cook",
@@ -218,6 +219,7 @@ export default function RestaurantDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navigation userType="restaurant" />
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow">
         <div className="px-6 py-4">
