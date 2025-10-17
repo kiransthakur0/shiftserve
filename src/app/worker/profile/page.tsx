@@ -8,7 +8,6 @@ import Navigation from '@/components/Navigation';
 export default function WorkerProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState('');
 
   // Mock profile data - in production this would come from a database
   const [profile, setProfile] = useState({
@@ -46,7 +45,6 @@ export default function WorkerProfilePage() {
         return;
       }
 
-      setUserEmail(user.email || '');
       setProfile(prev => ({ ...prev, email: user.email || '' }));
       setLoading(false);
     };
