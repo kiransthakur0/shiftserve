@@ -135,17 +135,18 @@ export default function WorkerOnboarding() {
     if (step > 1) setStep(step - 1);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     setLoading(true);
     setError(null);
 
-    try {
-      const supabase = createClient();
+    console.log('=== Starting profile submission ===');
 
-      // Get the current user (check again in case userId state isn't set)
-      const { data: { user } } = await supabase.auth.getUser();
+    const supabase = createClient();
 
+    // Get the current user
+    supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) {
+        console.error('No user found');
         setError("User not authenticated. Please log in again.");
         setLoading(false);
         setTimeout(() => router.push('/auth/login?type=worker'), 2000);
@@ -153,40 +154,55 @@ export default function WorkerOnboarding() {
       }
 
       console.log('Submitting worker profile for user:', user.id);
+      console.log('Form data:', {
+        certifications: formData.selectedCertifications.length,
+        skills: formData.selectedSkills.length,
+        roles: formData.selectedRoles.length,
+        radius: formData.serviceRadius,
+        experience: formData.experience
+      });
 
-      // Fire off the insert but don't wait for it (optimistic approach)
-      // The insert will happen in the background
-      supabase
-        .from('worker_profiles')
-        .insert({
-          user_id: user.id,
-          certifications: formData.selectedCertifications,
-          skills: formData.selectedSkills,
-          roles: formData.selectedRoles,
-          service_radius: formData.serviceRadius,
-          experience: formData.experience,
-          availability: formData.availability,
-        })
-        .then(({ error: insertError }) => {
-          if (insertError) {
-            console.error('Error inserting worker profile:', insertError);
-          } else {
-            console.log('Worker profile saved successfully');
-          }
-        });
+      // Fire off the insert without awaiting
+      try {
+        supabase
+          .from('worker_profiles')
+          .insert({
+            user_id: user.id,
+            certifications: formData.selectedCertifications,
+            skills: formData.selectedSkills,
+            roles: formData.selectedRoles,
+            service_radius: formData.serviceRadius,
+            experience: formData.experience,
+            availability: formData.availability,
+          })
+          .then(({ error: insertError }) => {
+            if (insertError) {
+              console.error('Profile insert error:', insertError);
+              console.error('Error details:', {
+                code: insertError?.code,
+                message: insertError?.message,
+                details: insertError?.details,
+                hint: insertError?.hint
+              });
+            } else {
+              console.log('Profile insert initiated successfully');
+            }
+          });
+      } catch (err) {
+        console.error('Profile insert exception:', err);
+      }
 
-      // Wait a brief moment to let the insert start, then redirect
-      console.log('Waiting briefly for insert to begin...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      console.log('Redirecting to discover page');
-      // Use hard navigation to ensure session is maintained
-      window.location.href = "/discover";
-    } catch (err: unknown) {
-      console.error('Profile submission error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save profile');
+      // Redirect after a brief delay
+      console.log('Scheduling redirect in 2 seconds...');
+      setTimeout(() => {
+        console.log('Redirecting now to /discover');
+        window.location.href = "/discover";
+      }, 2000);
+    }).catch(err => {
+      console.error('Error getting user:', err);
+      setError('Failed to verify authentication');
       setLoading(false);
-    }
+    });
   };
 
   return (
