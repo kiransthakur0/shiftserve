@@ -1,12 +1,33 @@
 -- ShiftServe Database Schema
 -- Run this in your Supabase SQL Editor
+--
+-- IMPORTANT: Choose one of the following options:
+--
+-- Option 1: FRESH INSTALL (drops all existing data)
+--   Uncomment the "DROP" statements below if you want to start fresh
+--
+-- Option 2: UPDATE EXISTING (preserves data)
+--   Keep the "DROP" statements commented out
+
+-- ============================================
+-- UNCOMMENT BELOW FOR FRESH INSTALL ONLY
+-- ============================================
+-- DROP TABLE IF EXISTS shift_applications CASCADE;
+-- DROP TABLE IF EXISTS shifts CASCADE;
+-- DROP TABLE IF EXISTS restaurant_profiles CASCADE;
+-- DROP TABLE IF EXISTS worker_profiles CASCADE;
+-- DROP TABLE IF EXISTS profiles CASCADE;
+-- DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- DROP FUNCTION IF EXISTS public.handle_new_user();
+-- DROP FUNCTION IF EXISTS update_updated_at_column();
+-- ============================================
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 
 -- Profiles table (extends Supabase auth.users)
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users(id) PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   user_type TEXT NOT NULL CHECK (user_type IN ('worker', 'restaurant')),
@@ -15,7 +36,7 @@ CREATE TABLE profiles (
 );
 
 -- Worker profiles table
-CREATE TABLE worker_profiles (
+CREATE TABLE IF NOT EXISTS worker_profiles (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE UNIQUE NOT NULL,
   certifications TEXT[] DEFAULT '{}',
@@ -30,7 +51,7 @@ CREATE TABLE worker_profiles (
 );
 
 -- Restaurant profiles table
-CREATE TABLE restaurant_profiles (
+CREATE TABLE IF NOT EXISTS restaurant_profiles (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE UNIQUE NOT NULL,
   restaurant_name TEXT NOT NULL,
@@ -51,7 +72,7 @@ CREATE TABLE restaurant_profiles (
 );
 
 -- Shifts table
-CREATE TABLE shifts (
+CREATE TABLE IF NOT EXISTS shifts (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   restaurant_id UUID REFERENCES restaurant_profiles(id) ON DELETE CASCADE NOT NULL,
   restaurant_name TEXT NOT NULL,
@@ -72,7 +93,7 @@ CREATE TABLE shifts (
 );
 
 -- Shift applications table
-CREATE TABLE shift_applications (
+CREATE TABLE IF NOT EXISTS shift_applications (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   shift_id UUID REFERENCES shifts(id) ON DELETE CASCADE NOT NULL,
   worker_id UUID REFERENCES worker_profiles(id) ON DELETE CASCADE NOT NULL,
@@ -84,18 +105,18 @@ CREATE TABLE shift_applications (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_worker_profiles_user_id ON worker_profiles(user_id);
-CREATE INDEX idx_restaurant_profiles_user_id ON restaurant_profiles(user_id);
-CREATE INDEX idx_shifts_restaurant_id ON shifts(restaurant_id);
-CREATE INDEX idx_shifts_status ON shifts(status);
-CREATE INDEX idx_shifts_date ON shifts(shift_date);
-CREATE INDEX idx_shift_applications_shift_id ON shift_applications(shift_id);
-CREATE INDEX idx_shift_applications_worker_id ON shift_applications(worker_id);
-CREATE INDEX idx_shift_applications_status ON shift_applications(status);
+CREATE INDEX IF NOT EXISTS idx_worker_profiles_user_id ON worker_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_restaurant_profiles_user_id ON restaurant_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_shifts_restaurant_id ON shifts(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(status);
+CREATE INDEX IF NOT EXISTS idx_shifts_date ON shifts(shift_date);
+CREATE INDEX IF NOT EXISTS idx_shift_applications_shift_id ON shift_applications(shift_id);
+CREATE INDEX IF NOT EXISTS idx_shift_applications_worker_id ON shift_applications(worker_id);
+CREATE INDEX IF NOT EXISTS idx_shift_applications_status ON shift_applications(status);
 
 -- Create spatial indexes for location-based queries
-CREATE INDEX idx_worker_profiles_location ON worker_profiles USING GIST(location);
-CREATE INDEX idx_restaurant_profiles_location ON restaurant_profiles USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_worker_profiles_location ON worker_profiles USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_restaurant_profiles_location ON restaurant_profiles USING GIST(location);
 
 -- Row Level Security (RLS) Policies
 
@@ -105,6 +126,32 @@ ALTER TABLE worker_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE restaurant_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shifts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shift_applications ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist (to avoid conflicts)
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
+  DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
+  DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+  DROP POLICY IF EXISTS "Workers can view their own profile" ON worker_profiles;
+  DROP POLICY IF EXISTS "Workers can update their own profile" ON worker_profiles;
+  DROP POLICY IF EXISTS "Workers can insert their own profile" ON worker_profiles;
+  DROP POLICY IF EXISTS "Restaurants can view worker profiles" ON worker_profiles;
+  DROP POLICY IF EXISTS "Restaurants can view their own profile" ON restaurant_profiles;
+  DROP POLICY IF EXISTS "Restaurants can update their own profile" ON restaurant_profiles;
+  DROP POLICY IF EXISTS "Restaurants can insert their own profile" ON restaurant_profiles;
+  DROP POLICY IF EXISTS "Workers can view restaurant profiles" ON restaurant_profiles;
+  DROP POLICY IF EXISTS "Anyone authenticated can view published shifts" ON shifts;
+  DROP POLICY IF EXISTS "Restaurants can view their own shifts" ON shifts;
+  DROP POLICY IF EXISTS "Restaurants can insert their own shifts" ON shifts;
+  DROP POLICY IF EXISTS "Restaurants can update their own shifts" ON shifts;
+  DROP POLICY IF EXISTS "Restaurants can delete their own shifts" ON shifts;
+  DROP POLICY IF EXISTS "Workers can view their own applications" ON shift_applications;
+  DROP POLICY IF EXISTS "Restaurants can view applications for their shifts" ON shift_applications;
+  DROP POLICY IF EXISTS "Workers can insert their own applications" ON shift_applications;
+  DROP POLICY IF EXISTS "Workers can update their own applications" ON shift_applications;
+  DROP POLICY IF EXISTS "Restaurants can update applications for their shifts" ON shift_applications;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
 
 -- Profiles policies
 CREATE POLICY "Users can view their own profile" ON profiles
@@ -252,18 +299,23 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create triggers for updated_at
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_worker_profiles_updated_at ON worker_profiles;
 CREATE TRIGGER update_worker_profiles_updated_at BEFORE UPDATE ON worker_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_restaurant_profiles_updated_at ON restaurant_profiles;
 CREATE TRIGGER update_restaurant_profiles_updated_at BEFORE UPDATE ON restaurant_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_shifts_updated_at ON shifts;
 CREATE TRIGGER update_shifts_updated_at BEFORE UPDATE ON shifts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_shift_applications_updated_at ON shift_applications;
 CREATE TRIGGER update_shift_applications_updated_at BEFORE UPDATE ON shift_applications
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -274,10 +326,15 @@ BEGIN
   INSERT INTO public.profiles (id, email, user_type)
   VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'user_type');
   RETURN NEW;
+EXCEPTION
+  WHEN unique_violation THEN
+    -- Profile already exists, skip insertion
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger to automatically create profile on signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
