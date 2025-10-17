@@ -1,33 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface NavigationProps {
-  userType: 'worker' | 'restaurant';
-}
-
-export default function Navigation({ userType }: NavigationProps) {
+export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
-  const [userEmail, setUserEmail] = useState<string>('');
+  const { user, userType, signOut } = useAuth();
 
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUserEmail(data.user.email || '');
-      }
-    });
-  }, []);
+  // Don't render if user or userType not loaded
+  if (!user || !userType) {
+    return null;
+  }
 
-  const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = '/';
-  };
+  const userEmail = user.email || '';
 
   const workerMenuItems = [
     { name: 'Home', path: '/worker/home', icon: '🏠' },
@@ -139,7 +127,7 @@ export default function Navigation({ userType }: NavigationProps) {
           {/* Sign Out Button */}
           <div className="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
             <button
-              onClick={handleSignOut}
+              onClick={signOut}
               className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
               <span className="text-xl">🚪</span>

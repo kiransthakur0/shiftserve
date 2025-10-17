@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "../contexts/AuthContext";
 import { ShiftProvider } from "../contexts/ShiftContext";
 import { ProfileProvider } from "../contexts/ProfileContext";
 import { RestaurantProfilesProvider } from "../context/RestaurantProfilesContext";
@@ -30,13 +31,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ProfileProvider>
-          <RestaurantProfilesProvider>
-            <ShiftProvider>
-              {children}
-            </ShiftProvider>
-          </RestaurantProfilesProvider>
-        </ProfileProvider>
+        <AuthProvider>
+          <ProfileProvider>
+            <RestaurantProfilesProvider>
+              <ShiftProvider>
+                {children}
+              </ShiftProvider>
+            </RestaurantProfilesProvider>
+          </ProfileProvider>
+        </AuthProvider>
       </body>
     </html>
   );

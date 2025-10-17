@@ -32,9 +32,10 @@ export default function RestaurantDashboard() {
   const [showChat, setShowChat] = useState(false);
   const [chatShift, setChatShift] = useState<Shift | null>(null);
 
-  // Get restaurant profile ID on mount
+  // Get restaurant profile ID and load shifts on mount
   useEffect(() => {
-    const fetchRestaurantProfile = async () => {
+    const fetchRestaurantProfileAndShifts = async () => {
+      setLoading(true);
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -46,10 +47,53 @@ export default function RestaurantDashboard() {
 
         if (profile) {
           setRestaurantId(profile.id);
+
+          // Load shifts for this restaurant
+          const { data: shiftsData, error: shiftsError } = await supabase
+            .from('shifts')
+            .select('*')
+            .eq('restaurant_id', profile.id)
+            .order('shift_date', { ascending: true });
+
+          if (shiftsError) {
+            console.error('Error loading shifts:', shiftsError);
+            setError('Failed to load shifts');
+          } else if (shiftsData) {
+            // Transform and add shifts to local context
+            shiftsData.forEach((dbShift) => {
+              const shift = {
+                restaurantName: dbShift.restaurant_name,
+                restaurantId: currentRestaurantId,
+                role: dbShift.role,
+                date: dbShift.shift_date,
+                startTime: dbShift.start_time,
+                endTime: '23:00', // Would need to calculate from start_time + duration
+                hourlyRate: parseFloat(dbShift.hourly_rate),
+                urgencyLevel: dbShift.urgency_level as "low" | "medium" | "high" | "critical",
+                bonusPercentage: dbShift.bonus_percentage,
+                description: dbShift.description || '',
+                requirements: dbShift.requirements || [],
+                published: dbShift.status === 'published',
+                status: dbShift.status as "draft" | "published" | "filled" | "cancelled",
+                location: restaurantProfile?.location && restaurantProfile?.address ? {
+                  lat: restaurantProfile.location.lat,
+                  lng: restaurantProfile.location.lng,
+                  address: restaurantProfile.address
+                } : undefined
+              };
+
+              // Only add if not already in context
+              if (!shifts.find(s => s.id === dbShift.id)) {
+                addShift(shift);
+              }
+            });
+          }
         }
       }
+      setLoading(false);
     };
-    fetchRestaurantProfile();
+    fetchRestaurantProfileAndShifts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [newShift, setNewShift] = useState({
@@ -161,24 +205,62 @@ export default function RestaurantDashboard() {
     return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
   };
 
-  const togglePublishShift = (shiftId: string) => {
+  const togglePublishShift = async (shiftId: string) => {
     const shift = shifts.find(s => s.id === shiftId);
     if (shift) {
       const newPublished = !shift.published;
       const newStatus = shift.published ? "draft" : "published";
 
-      // Update local context
-      updateShift(shiftId, {
-        published: newPublished,
-        status: newStatus
-      });
+      try {
+        const supabase = createClient();
 
+        // Update in Supabase
+        const { error: updateError } = await supabase
+          .from('shifts')
+          .update({ status: newStatus })
+          .eq('id', shiftId);
+
+        if (updateError) {
+          console.error('Error updating shift status:', updateError);
+          setError('Failed to update shift status');
+          return;
+        }
+
+        // Update local context
+        updateShift(shiftId, {
+          published: newPublished,
+          status: newStatus
+        });
+      } catch (err) {
+        console.error('Error toggling publish status:', err);
+        setError('Failed to update shift status');
+      }
     }
   };
 
-  const handleDeleteShift = (shiftId: string) => {
+  const handleDeleteShift = async (shiftId: string) => {
     if (confirm("Are you sure you want to delete this shift?")) {
-      deleteShift(shiftId);
+      try {
+        const supabase = createClient();
+
+        // Delete from Supabase
+        const { error: deleteError } = await supabase
+          .from('shifts')
+          .delete()
+          .eq('id', shiftId);
+
+        if (deleteError) {
+          console.error('Error deleting shift:', deleteError);
+          setError('Failed to delete shift');
+          return;
+        }
+
+        // Delete from local context
+        deleteShift(shiftId);
+      } catch (err) {
+        console.error('Error deleting shift:', err);
+        setError('Failed to delete shift');
+      }
     }
   };
 
@@ -219,7 +301,7 @@ export default function RestaurantDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navigation userType="restaurant" />
+      <Navigation />
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow">
         <div className="px-6 py-4">

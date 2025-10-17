@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useShifts, Shift } from "../../contexts/ShiftContext";
+import { createClient } from "@/lib/supabase/client";
 import Chat from "../../components/Chat";
 import Navigation from "../../components/Navigation";
 
@@ -27,10 +28,11 @@ const availableSkills = [
 ];
 
 export default function DiscoverShifts() {
-  const { applyToShift, getPublishedShifts, shifts } = useShifts();
+  const { applyToShift, getPublishedShifts, shifts, addShift } = useShifts();
   const [filteredShifts, setFilteredShifts] = useState<Shift[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [loadingShifts, setLoadingShifts] = useState(true);
 
   // Simulated current worker ID (would come from authentication)
   const currentWorkerId = "worker_1";
@@ -49,6 +51,74 @@ export default function DiscoverShifts() {
   const [skillMatchMode, setSkillMatchMode] = useState<"any" | "all">("any");
 
   const roles = ["all", "Server", "Bartender", "Dishwasher", "Line Cook", "Barista", "Host/Hostess", "Busser", "Food Runner", "Kitchen Manager", "Barback"];
+
+  // Load published shifts from database
+  useEffect(() => {
+    const fetchShifts = async () => {
+      try {
+        const supabase = createClient();
+        const { data: shiftsData, error } = await supabase
+          .from('shifts')
+          .select('*')
+          .eq('status', 'published')
+          .order('shift_date', { ascending: true });
+
+        if (error) {
+          console.error('Error fetching shifts:', error);
+          setLoadingShifts(false);
+          return;
+        }
+
+        if (shiftsData && userLocation) {
+          // Transform database shifts to match Shift interface
+          shiftsData.forEach((dbShift) => {
+            // Calculate distance if location data exists
+            // In a real app, you'd calculate distance from worker's location to restaurant location
+            // For now, we'll use a placeholder or skip distance calculation
+            const distance = undefined;
+
+            const shift: Shift = {
+              id: dbShift.id,
+              restaurantName: dbShift.restaurant_name,
+              restaurantId: dbShift.restaurant_id,
+              role: dbShift.role,
+              date: dbShift.shift_date,
+              startTime: dbShift.start_time,
+              endTime: '23:00', // End time not in DB schema, would need to calculate from duration
+              hourlyRate: parseFloat(dbShift.hourly_rate),
+              urgencyLevel: dbShift.urgency_level as "low" | "medium" | "high" | "critical",
+              bonusPercentage: dbShift.bonus_percentage,
+              description: dbShift.description || '',
+              requirements: dbShift.requirements || [],
+              published: dbShift.status === 'published',
+              applicants: 0, // Would need to count from shift_applications table
+              status: dbShift.status as "draft" | "published" | "filled" | "cancelled",
+              createdAt: dbShift.created_at,
+              duration: dbShift.duration,
+              distance: distance,
+              urgent: dbShift.urgent,
+              applications: [],
+              chatMessages: []
+            };
+
+            // Add to local context if not already present
+            if (!shifts.find(s => s.id === shift.id)) {
+              addShift(shift);
+            }
+          });
+        }
+        setLoadingShifts(false);
+      } catch (err) {
+        console.error('Error loading shifts:', err);
+        setLoadingShifts(false);
+      }
+    };
+
+    if (userLocation) {
+      fetchShifts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocation]);
 
   // Get user's geolocation on mount
   useEffect(() => {
@@ -124,7 +194,7 @@ export default function DiscoverShifts() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navigation userType="worker" />
+      <Navigation />
       <div className="flex h-screen">
         {/* Filters Sidebar */}
         <div className="w-80 bg-white dark:bg-gray-800 shadow-lg overflow-y-auto">
@@ -291,8 +361,14 @@ export default function DiscoverShifts() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Available Shifts
               </h2>
-              <div className="space-y-3">
-                {filteredShifts.map((shift) => (
+              {loadingShifts ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+                  <span className="ml-3 text-gray-600 dark:text-gray-400">Loading shifts...</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredShifts.map((shift) => (
                   <div
                     key={shift.id}
                     onClick={() => setSelectedShift(selectedShift?.id === shift.id ? null : shift)}
@@ -323,7 +399,8 @@ export default function DiscoverShifts() {
                     </p>
                   </div>
                 ))}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 

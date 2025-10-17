@@ -30,16 +30,26 @@ function LoginForm() {
       if (error) throw error
 
       if (data.user) {
-        // Check user type from metadata and redirect appropriately
-        const userType = data.user.user_metadata?.user_type || 'worker'
+        // Fetch user type from profiles table in database
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_type')
+          .eq('id', data.user.id)
+          .single()
+
+        if (profileError) {
+          console.error('Error fetching profile:', profileError)
+          throw new Error('Unable to fetch user profile. Please try again.')
+        }
+
+        const userType = profile?.user_type
 
         if (userType === 'worker') {
           router.push('/discover')
         } else if (userType === 'restaurant') {
           router.push('/restaurant/dashboard')
         } else {
-          // Default to worker if user_type is not set
-          router.push('/discover')
+          throw new Error('Invalid user type. Please contact support.')
         }
       }
     } catch (err: unknown) {
