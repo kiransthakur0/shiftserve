@@ -44,26 +44,75 @@ function LoginForm() {
       console.log('Starting login process...')
       const supabase = createClient()
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      console.log('Calling signInWithPassword...')
+      const authPromise = supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      console.log('Auth response:', { data, error })
+      // Add timeout to catch hanging promises
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Login request timed out after 10 seconds')), 10000)
+      )
 
-      if (error) throw error
+      console.log('Waiting for auth response...')
+      const { data, error } = await Promise.race([authPromise, timeoutPromise]) as any
+
+      console.log('Auth response received:', {
+        hasData: !!data,
+        hasUser: !!data?.user,
+        hasError: !!error,
+        errorMessage: error?.message
+      })
+
+      if (error) {
+        console.error('Auth error:', error)
+        throw error
+      }
 
       if (data.user) {
         console.log('User authenticated:', data.user.id)
+        console.log('User metadata:', data.user.user_metadata)
 
-        // Fetch user type from profiles table in database
-        const { data: profile, error: profileError } = await supabase
+        // Try to get user_type from metadata first (set during signup)
+        const metadataUserType = data.user.user_metadata?.user_type
+        console.log('User type from metadata:', metadataUserType)
+
+        if (metadataUserType) {
+          // Use metadata user_type for immediate redirect
+          console.log('Using metadata user_type for redirect')
+          if (metadataUserType === 'worker') {
+            console.log('Redirecting to /discover')
+            window.location.href = '/discover'
+            return
+          } else if (metadataUserType === 'restaurant') {
+            console.log('Redirecting to /restaurant/dashboard')
+            window.location.href = '/restaurant/dashboard'
+            return
+          }
+        }
+
+        // Fallback: Fetch user type from profiles table
+        console.log('Fetching user type from profiles table...')
+        const profilePromise = supabase
           .from('profiles')
           .select('user_type')
           .eq('id', data.user.id)
           .single()
 
-        console.log('Profile fetch response:', { profile, profileError })
+        const profileTimeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Profile fetch timed out after 5 seconds')), 5000)
+        )
+
+        const { data: profile, error: profileError } = await Promise.race([profilePromise, profileTimeout]) as any
+
+        console.log('Profile fetch response:', {
+          hasProfile: !!profile,
+          userType: profile?.user_type,
+          hasError: !!profileError,
+          errorCode: profileError?.code,
+          errorMessage: profileError?.message
+        })
 
         if (profileError) {
           console.error('Error fetching profile:', profileError)
@@ -80,14 +129,14 @@ function LoginForm() {
         }
 
         const userType = profile?.user_type
-        console.log('User type:', userType)
+        console.log('User type from profile:', userType)
 
         if (userType === 'worker') {
           console.log('Redirecting to /discover')
-          router.push('/discover')
+          window.location.href = '/discover'
         } else if (userType === 'restaurant') {
           console.log('Redirecting to /restaurant/dashboard')
-          router.push('/restaurant/dashboard')
+          window.location.href = '/restaurant/dashboard'
         } else {
           throw new Error('Invalid user type. Please contact support.')
         }
@@ -95,7 +144,6 @@ function LoginForm() {
     } catch (err: unknown) {
       console.error('Login error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred during login')
-    } finally {
       setLoading(false)
     }
   }
