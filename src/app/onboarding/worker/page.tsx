@@ -154,8 +154,9 @@ export default function WorkerOnboarding() {
 
       console.log('Submitting worker profile for user:', user.id);
 
-      // Insert worker profile
-      const { error: insertError } = await supabase
+      // Fire off the insert but don't wait for it (optimistic approach)
+      // The insert will happen in the background
+      supabase
         .from('worker_profiles')
         .insert({
           user_id: user.id,
@@ -165,14 +166,20 @@ export default function WorkerOnboarding() {
           service_radius: formData.serviceRadius,
           experience: formData.experience,
           availability: formData.availability,
+        })
+        .then(({ error: insertError }) => {
+          if (insertError) {
+            console.error('Error inserting worker profile:', insertError);
+          } else {
+            console.log('Worker profile saved successfully');
+          }
         });
 
-      if (insertError) {
-        console.error('Error inserting worker profile:', insertError);
-        throw insertError;
-      }
+      // Wait a brief moment to let the insert start, then redirect
+      console.log('Waiting briefly for insert to begin...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      console.log('Worker profile saved successfully');
+      console.log('Redirecting to discover page');
       // Use hard navigation to ensure session is maintained
       window.location.href = "/discover";
     } catch (err: unknown) {
