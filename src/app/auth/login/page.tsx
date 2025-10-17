@@ -2,12 +2,11 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { User } from '@supabase/supabase-js'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const userType = searchParams.get('type') || 'worker'
 
@@ -56,7 +55,8 @@ function LoginForm() {
       )
 
       console.log('Waiting for auth response...')
-      const { data, error } = await Promise.race([authPromise, timeoutPromise]) as any
+      const result = await Promise.race([authPromise, timeoutPromise])
+      const { data, error } = result as { data: { user: User | null, session: unknown }, error: Error | null }
 
       console.log('Auth response received:', {
         hasData: !!data,
@@ -104,7 +104,8 @@ function LoginForm() {
           setTimeout(() => reject(new Error('Profile fetch timed out after 5 seconds')), 5000)
         )
 
-        const { data: profile, error: profileError } = await Promise.race([profilePromise, profileTimeout]) as any
+        const profileResult = await Promise.race([profilePromise, profileTimeout])
+        const { data: profile, error: profileError } = profileResult as { data: { user_type: string } | null, error: { code: string, message: string } | null }
 
         console.log('Profile fetch response:', {
           hasProfile: !!profile,
