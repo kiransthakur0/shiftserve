@@ -114,6 +114,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // If logged in and on login/signup page, redirect to appropriate dashboard
+    if (user && userType && (pathname === '/auth/login' || pathname === '/auth/signup')) {
+      console.log('User already logged in, redirecting from auth pages...');
+      if (userType === 'worker') {
+        router.push('/discover');
+      } else if (userType === 'restaurant') {
+        router.push('/restaurant/dashboard');
+      }
+      return;
+    }
+
     // If logged in, check user type matches route
     if (user && userType) {
       const isWorkerRoute = pathname.startsWith('/worker') || pathname === '/discover';

@@ -21,15 +21,21 @@ function LoginForm() {
     setLoading(true)
 
     try {
+      console.log('Starting login process...')
       const supabase = createClient()
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
+      console.log('Auth response:', { data, error })
+
       if (error) throw error
 
       if (data.user) {
+        console.log('User authenticated:', data.user.id)
+
         // Fetch user type from profiles table in database
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -37,22 +43,37 @@ function LoginForm() {
           .eq('id', data.user.id)
           .single()
 
+        console.log('Profile fetch response:', { profile, profileError })
+
         if (profileError) {
           console.error('Error fetching profile:', profileError)
-          throw new Error('Unable to fetch user profile. Please try again.')
+
+          // Check if it's a "not found" error vs other errors
+          if (profileError.code === 'PGRST116') {
+            throw new Error(
+              'Profile not found. The database trigger may not be set up correctly. ' +
+              'Please run the supabase-schema.sql file in your Supabase SQL Editor.'
+            )
+          }
+
+          throw new Error(`Unable to fetch user profile: ${profileError.message}`)
         }
 
         const userType = profile?.user_type
+        console.log('User type:', userType)
 
         if (userType === 'worker') {
+          console.log('Redirecting to /discover')
           router.push('/discover')
         } else if (userType === 'restaurant') {
+          console.log('Redirecting to /restaurant/dashboard')
           router.push('/restaurant/dashboard')
         } else {
           throw new Error('Invalid user type. Please contact support.')
         }
       }
     } catch (err: unknown) {
+      console.error('Login error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred during login')
     } finally {
       setLoading(false)
