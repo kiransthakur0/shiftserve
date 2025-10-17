@@ -44,103 +44,109 @@ function LoginForm() {
       const supabase = createClient()
 
       console.log('Calling signInWithPassword...')
-      const authPromise = supabase.auth.signInWithPassword({
+
+      // Use a different approach: set up session listener BEFORE calling signInWithPassword
+      let authResolved = false
+      const sessionPromise = new Promise<User>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          if (!authResolved) {
+            reject(new Error('Login request timed out after 15 seconds'))
+          }
+        }, 15000)
+
+        // Listen for auth state change
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('Auth state changed:', event, !!session)
+          if (event === 'SIGNED_IN' && session?.user && !authResolved) {
+            authResolved = true
+            clearTimeout(timeout)
+            subscription.unsubscribe()
+            resolve(session.user)
+          }
+        })
+      })
+
+      // Now call signInWithPassword
+      supabase.auth.signInWithPassword({
         email,
         password,
+      }).then(({ error }) => {
+        if (error) {
+          console.error('signInWithPassword error:', error)
+          setError(error.message)
+          setLoading(false)
+        }
+      }).catch(err => {
+        console.error('signInWithPassword exception:', err)
+        setError('Authentication failed')
+        setLoading(false)
       })
 
-      // Add timeout to catch hanging promises
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Login request timed out after 10 seconds')), 10000)
-      )
+      console.log('Waiting for session...')
+      const user = await sessionPromise
 
-      console.log('Waiting for auth response...')
-      const result = await Promise.race([authPromise, timeoutPromise])
-      const { data, error } = result as { data: { user: User | null, session: unknown }, error: Error | null }
+      console.log('User authenticated:', user.id)
+      console.log('User metadata:', user.user_metadata)
 
-      console.log('Auth response received:', {
-        hasData: !!data,
-        hasUser: !!data?.user,
-        hasError: !!error,
-        errorMessage: error?.message
-      })
+      // Try to get user_type from metadata first (set during signup)
+      const metadataUserType = user.user_metadata?.user_type
+      console.log('User type from metadata:', metadataUserType)
 
-      if (error) {
-        console.error('Auth error:', error)
-        throw error
-      }
-
-      if (data.user) {
-        console.log('User authenticated:', data.user.id)
-        console.log('User metadata:', data.user.user_metadata)
-
-        // Try to get user_type from metadata first (set during signup)
-        const metadataUserType = data.user.user_metadata?.user_type
-        console.log('User type from metadata:', metadataUserType)
-
-        if (metadataUserType) {
-          // Use metadata user_type for immediate redirect
-          console.log('Using metadata user_type for redirect')
-          if (metadataUserType === 'worker') {
-            console.log('Redirecting to /discover')
-            window.location.href = '/discover'
-            return
-          } else if (metadataUserType === 'restaurant') {
-            console.log('Redirecting to /restaurant/dashboard')
-            window.location.href = '/restaurant/dashboard'
-            return
-          }
-        }
-
-        // Fallback: Fetch user type from profiles table
-        console.log('Fetching user type from profiles table...')
-        const profilePromise = supabase
-          .from('profiles')
-          .select('user_type')
-          .eq('id', data.user.id)
-          .single()
-
-        const profileTimeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Profile fetch timed out after 5 seconds')), 5000)
-        )
-
-        const profileResult = await Promise.race([profilePromise, profileTimeout])
-        const { data: profile, error: profileError } = profileResult as { data: { user_type: string } | null, error: { code: string, message: string } | null }
-
-        console.log('Profile fetch response:', {
-          hasProfile: !!profile,
-          userType: profile?.user_type,
-          hasError: !!profileError,
-          errorCode: profileError?.code,
-          errorMessage: profileError?.message
-        })
-
-        if (profileError) {
-          console.error('Error fetching profile:', profileError)
-
-          // Check if it's a "not found" error vs other errors
-          if (profileError.code === 'PGRST116') {
-            throw new Error(
-              'Profile not found. The database trigger may not be set up correctly. ' +
-              'Please run the supabase-schema.sql file in your Supabase SQL Editor.'
-            )
-          }
-
-          throw new Error(`Unable to fetch user profile: ${profileError.message}`)
-        }
-
-        const userType = profile?.user_type
-        console.log('User type from profile:', userType)
-
-        if (userType === 'worker') {
+      if (metadataUserType) {
+        // Use metadata user_type for immediate redirect
+        console.log('Using metadata user_type for redirect')
+        if (metadataUserType === 'worker') {
           console.log('Redirecting to /discover')
           window.location.href = '/discover'
-        } else if (userType === 'restaurant') {
+          return
+        } else if (metadataUserType === 'restaurant') {
           console.log('Redirecting to /restaurant/dashboard')
           window.location.href = '/restaurant/dashboard'
-        } else {
-          throw new Error('Invalid user type. Please contact support.')
+          return
         }
+      }
+
+      // Fallback: Fetch user type from profiles table
+      console.log('Fetching user type from profiles table...')
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('id', user.id)
+        .single()
+
+      console.log('Profile fetch response:', {
+        hasProfile: !!profile,
+        userType: profile?.user_type,
+        hasError: !!profileError,
+        errorCode: profileError?.code,
+        errorMessage: profileError?.message
+      })
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError)
+
+        // Check if it's a "not found" error vs other errors
+        if (profileError.code === 'PGRST116') {
+          throw new Error(
+            'Profile not found. The database trigger may not be set up correctly. ' +
+            'Please run the supabase-schema.sql file in your Supabase SQL Editor.'
+          )
+        }
+
+        throw new Error(`Unable to fetch user profile: ${profileError.message}`)
+      }
+
+      const userTypeFromProfile = profile?.user_type
+      console.log('User type from profile:', userTypeFromProfile)
+
+      if (userTypeFromProfile === 'worker') {
+        console.log('Redirecting to /discover')
+        window.location.href = '/discover'
+      } else if (userTypeFromProfile === 'restaurant') {
+        console.log('Redirecting to /restaurant/dashboard')
+        window.location.href = '/restaurant/dashboard'
+      } else {
+        throw new Error('Invalid user type. Please contact support.')
       }
     } catch (err: unknown) {
       console.error('Login error:', err)
