@@ -44,7 +44,6 @@ export default function WorkerOnboarding() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     selectedCertifications: [] as string[],
     selectedSkills: [] as string[],
@@ -65,13 +64,29 @@ export default function WorkerOnboarding() {
   useEffect(() => {
     const checkAuth = async () => {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/auth/signup?type=worker');
-      } else {
-        setUserId(user.id);
+
+      // Try multiple times to get the user session (it might take a moment after signup)
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      while (attempts < maxAttempts) {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          console.log('User authenticated in onboarding:', user.id);
+          return; // User is authenticated, stop checking
+        }
+
+        // Wait 500ms before trying again
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
       }
+
+      // If we still don't have a user after all attempts, redirect to signup
+      console.error('No user found after multiple attempts');
+      router.push('/auth/signup?type=worker');
     };
+
     checkAuth();
   }, [router]);
 
@@ -121,22 +136,29 @@ export default function WorkerOnboarding() {
   };
 
   const handleSubmit = async () => {
-    if (!userId) {
-      setError("User not authenticated");
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
       const supabase = createClient();
 
+      // Get the current user (check again in case userId state isn't set)
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError("User not authenticated. Please log in again.");
+        setLoading(false);
+        setTimeout(() => router.push('/auth/login?type=worker'), 2000);
+        return;
+      }
+
+      console.log('Submitting worker profile for user:', user.id);
+
       // Insert worker profile
       const { error: insertError } = await supabase
         .from('worker_profiles')
         .insert({
-          user_id: userId,
+          user_id: user.id,
           certifications: formData.selectedCertifications,
           skills: formData.selectedSkills,
           roles: formData.selectedRoles,
@@ -145,11 +167,16 @@ export default function WorkerOnboarding() {
           availability: formData.availability,
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('Error inserting worker profile:', insertError);
+        throw insertError;
+      }
 
-      // Redirect to Discover Shifts page
-      router.push("/discover");
+      console.log('Worker profile saved successfully');
+      // Use hard navigation to ensure session is maintained
+      window.location.href = "/discover";
     } catch (err: unknown) {
+      console.error('Profile submission error:', err);
       setError(err instanceof Error ? err.message : 'Failed to save profile');
       setLoading(false);
     }
