@@ -2,11 +2,10 @@
 
 import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 function SignUpForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const userType = searchParams.get('type') || 'worker'
 
@@ -33,8 +32,35 @@ function SignUpForm() {
     setLoading(true)
 
     try {
+      console.log('Starting signup process...')
       const supabase = createClient()
-      const { data, error } = await supabase.auth.signUp({
+
+      console.log('Setting up auth state listener...')
+      // Use auth state listener approach (same as login fix)
+      let authResolved = false
+      const sessionPromise = new Promise<{ userType: string }>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          if (!authResolved) {
+            reject(new Error('Signup request timed out after 15 seconds'))
+          }
+        }, 15000)
+
+        // Listen for auth state change
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('Auth state changed:', event, !!session)
+          if (event === 'SIGNED_IN' && session?.user && !authResolved) {
+            authResolved = true
+            clearTimeout(timeout)
+            subscription.unsubscribe()
+            const userTypeFromMetadata = session.user.user_metadata?.user_type || userType
+            resolve({ userType: userTypeFromMetadata })
+          }
+        })
+      })
+
+      // Now call signUp
+      console.log('Calling signUp...')
+      supabase.auth.signUp({
         email,
         password,
         options: {
@@ -42,21 +68,33 @@ function SignUpForm() {
             user_type: userType,
           },
         },
+      }).then(({ error }) => {
+        if (error) {
+          console.error('signUp error:', error)
+          setError(error.message)
+          setLoading(false)
+        }
+      }).catch(err => {
+        console.error('signUp exception:', err)
+        setError('Account creation failed')
+        setLoading(false)
       })
 
-      if (error) throw error
+      console.log('Waiting for session...')
+      const { userType: confirmedUserType } = await sessionPromise
 
-      if (data.user) {
-        // Redirect to appropriate onboarding
-        if (userType === 'worker') {
-          router.push('/onboarding/worker')
-        } else {
-          router.push('/onboarding/restaurant')
-        }
+      console.log('User signed up successfully, redirecting...')
+      // Redirect to appropriate onboarding
+      if (confirmedUserType === 'worker') {
+        console.log('Redirecting to /onboarding/worker')
+        window.location.href = '/onboarding/worker'
+      } else {
+        console.log('Redirecting to /onboarding/restaurant')
+        window.location.href = '/onboarding/restaurant'
       }
     } catch (err: unknown) {
+      console.error('Signup error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred during sign up')
-    } finally {
       setLoading(false)
     }
   }
