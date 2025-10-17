@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -14,6 +14,25 @@ function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      console.log('Current user on login page:', user)
+      setCurrentUser(user)
+    }
+    checkAuth()
+  }, [])
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setCurrentUser(null)
+    console.log('Logged out successfully')
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,6 +110,16 @@ function LoginForm() {
             Log in as a {userType === 'worker' ? 'Worker' : 'Restaurant'}
           </p>
         </div>
+
+        {currentUser && (
+          <div className="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-700 text-yellow-700 dark:text-yellow-400 rounded-lg text-sm">
+            You are already logged in as {currentUser.email}.{' '}
+            <button onClick={handleLogout} className="underline font-medium">
+              Log out
+            </button>{' '}
+            to sign in with a different account.
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 rounded-lg text-sm">
