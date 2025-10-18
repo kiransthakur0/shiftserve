@@ -15,12 +15,12 @@ export default function RestaurantHomePage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push('/auth/login?type=restaurant');
+        window.location.href = '/auth/login?type=restaurant';
         return;
       }
 
       if (user.user_metadata?.user_type !== 'restaurant') {
-        router.push('/worker/home');
+        window.location.href = '/worker/home';
         return;
       }
 

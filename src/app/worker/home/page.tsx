@@ -15,12 +15,12 @@ export default function WorkerHomePage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push('/auth/login?type=worker');
+        window.location.href = '/auth/login?type=worker';
         return;
       }
 
       if (user.user_metadata?.user_type !== 'worker') {
-        router.push('/restaurant/home');
+        window.location.href = '/restaurant/home';
         return;
       }
 

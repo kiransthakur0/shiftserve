@@ -126,7 +126,13 @@ export default function RestaurantDashboard() {
 
   const handleCreateShift = async () => {
     if (!restaurantId) {
-      setError("Restaurant profile not found");
+      setError("Restaurant profile not found. Please complete your restaurant onboarding first.");
+      return;
+    }
+
+    // Validate form fields
+    if (!newShift.role || !newShift.date || !newShift.startTime || !newShift.endTime) {
+      setError("Please fill in all required fields");
       return;
     }
 
