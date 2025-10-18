@@ -23,7 +23,9 @@ export default function RestaurantDashboard() {
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const currentRestaurantId = "rest_current"; // Legacy - would come from auth
   const restaurantProfile = getProfile(currentRestaurantId);
-  const [loading, setLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [creatingShift, setCreatingShift] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
@@ -35,7 +37,7 @@ export default function RestaurantDashboard() {
   // Get restaurant profile ID and load shifts on mount
   useEffect(() => {
     const fetchRestaurantProfileAndShifts = async () => {
-      setLoading(true);
+      setLoadingProfile(true);
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -90,7 +92,7 @@ export default function RestaurantDashboard() {
           }
         }
       }
-      setLoading(false);
+      setLoadingProfile(false);
     };
     fetchRestaurantProfileAndShifts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,7 +130,7 @@ export default function RestaurantDashboard() {
       return;
     }
 
-    setLoading(true);
+    setCreatingShift(true);
     setError(null);
 
     try {
@@ -189,7 +191,7 @@ export default function RestaurantDashboard() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to create shift');
     } finally {
-      setLoading(false);
+      setCreatingShift(false);
     }
   };
 
@@ -633,10 +635,10 @@ export default function RestaurantDashboard() {
               </button>
               <button
                 onClick={handleCreateShift}
-                disabled={loading}
+                disabled={creatingShift}
                 className="px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
               >
-                {loading ? 'Creating Shift...' : 'Create Shift'}
+                {creatingShift ? 'Creating Shift...' : 'Create Shift'}
               </button>
             </div>
           </div>
