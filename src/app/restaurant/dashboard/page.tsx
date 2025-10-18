@@ -126,7 +126,7 @@ export default function RestaurantDashboard() {
 
   const handleCreateShift = async () => {
     if (!restaurantId) {
-      setError("Restaurant profile not found. Please complete your restaurant onboarding first.");
+      setError("Restaurant profile not found. Please complete your profile first by visiting the Profile page.");
       return;
     }
 

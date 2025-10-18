@@ -5,35 +5,61 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Navigation from '@/components/Navigation';
 
+const cuisineTypes = [
+  'American', 'Italian', 'Mexican', 'Chinese', 'Japanese', 'Thai', 'Indian',
+  'French', 'Mediterranean', 'Greek', 'Spanish', 'Korean', 'Vietnamese', 'Other'
+];
+
+const restaurantTypes = [
+  'Fine Dining', 'Casual Dining', 'Fast Casual', 'Fast Food', 'Cafe',
+  'Bar/Pub', 'Food Truck', 'Catering', 'Other'
+];
+
+const commonRolesOptions = [
+  'Server', 'Bartender', 'Host/Hostess', 'Busser', 'Line Cook',
+  'Prep Cook', 'Dishwasher', 'Barback', 'Food Runner', 'Kitchen Manager',
+  'Sous Chef', 'Head Chef'
+];
+
+const benefitsOptions = [
+  'Flexible Schedule', 'Employee Meals', 'Tips', 'Health Insurance',
+  'Paid Time Off', 'Retirement Plan', 'Training Provided', 'Career Growth',
+  'Employee Discounts', 'Bonus Opportunities'
+];
+
 export default function RestaurantProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
 
-  // Mock profile data - in production this would come from a database
   const [profile, setProfile] = useState({
-    restaurantName: 'The Blue Table',
+    restaurantName: '',
     email: '',
-    phone: '(555) 987-6543',
-    description: 'A fine dining establishment serving contemporary American cuisine',
+    phone: '',
+    description: '',
     cuisineType: 'American',
-    restaurantType: 'Fine Dining',
-    address: '123 Main Street, New York, NY 10001',
+    restaurantType: 'Casual Dining',
+    address: '',
     operatingHours: {
-      monday: { open: '17:00', close: '22:00', closed: false },
-      tuesday: { open: '17:00', close: '22:00', closed: false },
-      wednesday: { open: '17:00', close: '22:00', closed: false },
-      thursday: { open: '17:00', close: '22:00', closed: false },
-      friday: { open: '17:00', close: '23:00', closed: false },
-      saturday: { open: '17:00', close: '23:00', closed: false },
+      monday: { open: '09:00', close: '17:00', closed: false },
+      tuesday: { open: '09:00', close: '17:00', closed: false },
+      wednesday: { open: '09:00', close: '17:00', closed: false },
+      thursday: { open: '09:00', close: '17:00', closed: false },
+      friday: { open: '09:00', close: '17:00', closed: false },
+      saturday: { open: '09:00', close: '17:00', closed: false },
       sunday: { open: '', close: '', closed: true }
     },
-    payRange: { min: 18, max: 28 },
-    commonRoles: ['Server', 'Bartender', 'Line Cook', 'Dishwasher'],
-    benefits: ['Flexible Schedule', 'Employee Meals', 'Tips']
+    payRange: { min: 15, max: 25 },
+    commonRoles: [] as string[],
+    benefits: [] as string[]
   });
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const loadProfile = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -47,12 +73,137 @@ export default function RestaurantProfilePage() {
         return;
       }
 
+      setUserId(user.id);
       setProfile(prev => ({ ...prev, email: user.email || '' }));
+
+      // Try to load existing profile from database
+      const { data: existingProfile } = await supabase
+        .from('restaurant_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (existingProfile) {
+        setProfileId(existingProfile.id);
+        setProfile({
+          restaurantName: existingProfile.restaurant_name || '',
+          email: user.email || '',
+          phone: existingProfile.phone || '',
+          description: existingProfile.description || '',
+          cuisineType: existingProfile.cuisine_type || 'American',
+          restaurantType: existingProfile.restaurant_type || 'Casual Dining',
+          address: existingProfile.address || '',
+          operatingHours: existingProfile.operating_hours || profile.operatingHours,
+          payRange: existingProfile.pay_range || { min: 15, max: 25 },
+          commonRoles: existingProfile.common_roles || [],
+          benefits: existingProfile.benefits || []
+        });
+      }
+
       setLoading(false);
     };
 
-    checkAuth();
-  }, [router]);
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSaveProfile = async () => {
+    if (!userId) {
+      setError('User not authenticated');
+      return;
+    }
+
+    // Validation
+    if (!profile.restaurantName || !profile.phone || !profile.address) {
+      setError('Please fill in all required fields (Restaurant Name, Phone, Address)');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const supabase = createClient();
+
+      const profileData = {
+        user_id: userId,
+        restaurant_name: profile.restaurantName,
+        phone: profile.phone,
+        description: profile.description,
+        cuisine_type: profile.cuisineType,
+        restaurant_type: profile.restaurantType,
+        address: profile.address,
+        operating_hours: profile.operatingHours,
+        pay_range: profile.payRange,
+        common_roles: profile.commonRoles,
+        benefits: profile.benefits,
+        updated_at: new Date().toISOString()
+      };
+
+      if (profileId) {
+        // Update existing profile
+        const { error: updateError } = await supabase
+          .from('restaurant_profiles')
+          .update(profileData)
+          .eq('id', profileId);
+
+        if (updateError) throw updateError;
+      } else {
+        // Create new profile
+        const { data: newProfile, error: insertError } = await supabase
+          .from('restaurant_profiles')
+          .insert({
+            ...profileData,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        if (newProfile) setProfileId(newProfile.id);
+      }
+
+      setSuccess('Profile saved successfully!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: unknown) {
+      console.error('Error saving profile:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleRole = (role: string) => {
+    setProfile(prev => ({
+      ...prev,
+      commonRoles: prev.commonRoles.includes(role)
+        ? prev.commonRoles.filter(r => r !== role)
+        : [...prev.commonRoles, role]
+    }));
+  };
+
+  const toggleBenefit = (benefit: string) => {
+    setProfile(prev => ({
+      ...prev,
+      benefits: prev.benefits.includes(benefit)
+        ? prev.benefits.filter(b => b !== benefit)
+        : [...prev.benefits, benefit]
+    }));
+  };
+
+  const updateOperatingHours = (day: string, field: 'open' | 'close' | 'closed', value: string | boolean) => {
+    setProfile(prev => ({
+      ...prev,
+      operatingHours: {
+        ...prev.operatingHours,
+        [day]: {
+          ...prev.operatingHours[day as keyof typeof prev.operatingHours],
+          [field]: value
+        }
+      }
+    }));
+  };
 
   if (loading) {
     return (
@@ -72,9 +223,21 @@ export default function RestaurantProfilePage() {
             Restaurant Profile
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage your restaurant information and preferences
+            {profileId ? 'Edit your restaurant information and preferences' : 'Complete your restaurant profile to start posting shifts'}
           </p>
         </div>
+
+        {/* Success/Error Messages */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 rounded-lg">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-6 p-4 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-400 rounded-lg">
+            {success}
+          </div>
+        )}
 
         {/* Basic Information */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
@@ -84,13 +247,14 @@ export default function RestaurantProfilePage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Restaurant Name
+                Restaurant Name *
               </label>
               <input
                 type="text"
                 value={profile.restaurantName}
                 onChange={(e) => setProfile({ ...profile, restaurantName: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                placeholder="Enter restaurant name"
               />
             </div>
             <div>
@@ -106,24 +270,26 @@ export default function RestaurantProfilePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Phone
+                Phone *
               </label>
               <input
                 type="tel"
                 value={profile.phone}
                 onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                placeholder="(555) 123-4567"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Address
+                Address *
               </label>
               <input
                 type="text"
                 value={profile.address}
                 onChange={(e) => setProfile({ ...profile, address: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                placeholder="123 Main Street, City, State ZIP"
               />
             </div>
             <div>
@@ -135,6 +301,7 @@ export default function RestaurantProfilePage() {
                 onChange={(e) => setProfile({ ...profile, description: e.target.value })}
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                placeholder="Describe your restaurant..."
               />
             </div>
           </div>
@@ -150,17 +317,29 @@ export default function RestaurantProfilePage() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Cuisine Type
               </label>
-              <div className="text-gray-900 dark:text-white">
-                {profile.cuisineType}
-              </div>
+              <select
+                value={profile.cuisineType}
+                onChange={(e) => setProfile({ ...profile, cuisineType: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                {cuisineTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Restaurant Type
               </label>
-              <div className="text-gray-900 dark:text-white">
-                {profile.restaurantType}
-              </div>
+              <select
+                value={profile.restaurantType}
+                onChange={(e) => setProfile({ ...profile, restaurantType: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              >
+                {restaurantTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -172,17 +351,36 @@ export default function RestaurantProfilePage() {
           </h2>
           <div className="space-y-3">
             {Object.entries(profile.operatingHours).map(([day, hours]) => (
-              <div key={day} className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-0">
+              <div key={day} className="flex items-center gap-4 py-2 border-b border-gray-200 dark:border-gray-700 last:border-0">
                 <span className="font-medium text-gray-900 dark:text-white capitalize w-24">
                   {day}
                 </span>
-                <div className="text-gray-600 dark:text-gray-400">
-                  {hours.closed ? (
-                    <span className="text-red-600 dark:text-red-400">Closed</span>
-                  ) : (
-                    <span>{hours.open} - {hours.close}</span>
-                  )}
-                </div>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={hours.closed}
+                    onChange={(e) => updateOperatingHours(day, 'closed', e.target.checked)}
+                    className="mr-2"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Closed</span>
+                </label>
+                {!hours.closed && (
+                  <>
+                    <input
+                      type="time"
+                      value={hours.open}
+                      onChange={(e) => updateOperatingHours(day, 'open', e.target.value)}
+                      className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
+                    />
+                    <span className="text-gray-500">-</span>
+                    <input
+                      type="time"
+                      value={hours.close}
+                      onChange={(e) => updateOperatingHours(day, 'close', e.target.value)}
+                      className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
+                    />
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -193,23 +391,32 @@ export default function RestaurantProfilePage() {
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
             Pay Range
           </h2>
-          <div className="flex items-center space-x-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Minimum
+                Minimum ($/hr)
               </label>
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                ${profile.payRange.min}/hr
-              </div>
+              <input
+                type="number"
+                value={profile.payRange.min}
+                onChange={(e) => setProfile({ ...profile, payRange: { ...profile.payRange, min: parseInt(e.target.value) || 15 }})}
+                min="10"
+                max="100"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
             </div>
-            <span className="text-gray-400 mt-6">-</span>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Maximum
+                Maximum ($/hr)
               </label>
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                ${profile.payRange.max}/hr
-              </div>
+              <input
+                type="number"
+                value={profile.payRange.max}
+                onChange={(e) => setProfile({ ...profile, payRange: { ...profile.payRange, max: parseInt(e.target.value) || 25 }})}
+                min="10"
+                max="100"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              />
             </div>
           </div>
         </div>
@@ -219,14 +426,17 @@ export default function RestaurantProfilePage() {
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
             Common Roles
           </h2>
-          <div className="flex flex-wrap gap-2">
-            {profile.commonRoles.map((role, index) => (
-              <span
-                key={index}
-                className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-3 py-1 rounded-full text-sm"
-              >
-                {role}
-              </span>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {commonRolesOptions.map(role => (
+              <label key={role} className="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={profile.commonRoles.includes(role)}
+                  onChange={() => toggleRole(role)}
+                  className="mr-2"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{role}</span>
+              </label>
             ))}
           </div>
         </div>
@@ -236,14 +446,17 @@ export default function RestaurantProfilePage() {
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
             Benefits
           </h2>
-          <div className="flex flex-wrap gap-2">
-            {profile.benefits.map((benefit, index) => (
-              <span
-                key={index}
-                className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-3 py-1 rounded-full text-sm"
-              >
-                {benefit}
-              </span>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {benefitsOptions.map(benefit => (
+              <label key={benefit} className="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={profile.benefits.includes(benefit)}
+                  onChange={() => toggleBenefit(benefit)}
+                  className="mr-2"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{benefit}</span>
+              </label>
             ))}
           </div>
         </div>
@@ -251,10 +464,11 @@ export default function RestaurantProfilePage() {
         {/* Action Buttons */}
         <div className="flex space-x-4">
           <button
-            onClick={() => router.push('/onboarding/restaurant')}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            onClick={handleSaveProfile}
+            disabled={saving}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
-            Edit Profile
+            {saving ? 'Saving...' : 'Save Profile'}
           </button>
           <button
             onClick={() => router.push('/restaurant/dashboard')}
