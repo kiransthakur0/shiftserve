@@ -10,21 +10,12 @@ export default function Navigation() {
   const pathname = usePathname();
   const { user, userType, signOut, loading } = useAuth();
 
-  // Show a placeholder header while loading
-  if (loading || !user || !userType) {
-    return (
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="flex items-center px-4 py-3">
-          <div className="ml-4 flex items-center">
-            <span className="text-xl font-bold text-blue-600 dark:text-blue-400">ShiftServe</span>
-          </div>
-        </div>
-        <div className="h-14"></div>
-      </header>
-    );
+  // Don't render navigation if no user/userType (only on initial load or logged out)
+  if (!loading && (!user || !userType)) {
+    return null;
   }
 
-  const userEmail = user.email || '';
+  const userEmail = user?.email || 'Loading...';
 
   const workerMenuItems = [
     { name: 'Home', path: '/worker/home', icon: '🏠' },
@@ -145,9 +136,6 @@ export default function Navigation() {
           </div>
         </div>
       </aside>
-
-      {/* Spacer for fixed header */}
-      <div className="h-14"></div>
     </>
   );
 }

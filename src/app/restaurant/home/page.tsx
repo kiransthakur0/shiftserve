@@ -93,7 +93,7 @@ export default function RestaurantHomePage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navigation />
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8 pt-20">
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">

@@ -303,7 +303,7 @@ export default function RestaurantDashboard() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navigation />
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow">
+      <div className="bg-white dark:bg-gray-800 shadow pt-14">
         <div className="px-6 py-4">
           <div className="flex justify-between items-center">
             <div>
