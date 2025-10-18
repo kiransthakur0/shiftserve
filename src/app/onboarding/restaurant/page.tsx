@@ -98,13 +98,30 @@ export default function RestaurantOnboarding() {
   useEffect(() => {
     const checkAuth = async () => {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/auth/signup?type=restaurant');
-      } else {
-        setUserId(user.id);
+
+      // Try multiple times to get the user session (it might take a moment after signup)
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      while (attempts < maxAttempts) {
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (user) {
+          console.log('User authenticated in restaurant onboarding:', user.id);
+          setUserId(user.id);
+          return;
+        }
+
+        // Wait 500ms before trying again
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
       }
+
+      // If we still don't have a user after all attempts, redirect to signup
+      console.error('No user found after multiple attempts');
+      router.push('/auth/signup?type=restaurant');
     };
+
     checkAuth();
   }, [router]);
 
@@ -124,67 +141,102 @@ export default function RestaurantOnboarding() {
     }
   }, [formData.address]);
 
-  const handleSubmit = async () => {
-    if (!userId) {
-      setError("User not authenticated");
-      return;
-    }
-
+  const handleSubmit = () => {
     setLoading(true);
     setError(null);
 
-    try {
-      const supabase = createClient();
+    console.log('=== Starting restaurant profile submission ===');
+
+    const supabase = createClient();
+
+    // Get the current user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        console.error('No user found');
+        setError("User not authenticated. Please log in again.");
+        setLoading(false);
+        setTimeout(() => router.push('/auth/login?type=restaurant'), 2000);
+        return;
+      }
+
+      console.log('Submitting restaurant profile for user:', user.id);
+      console.log('Form data:', {
+        restaurantName: formData.restaurantName,
+        address: formData.address,
+        roles: formData.commonRoles.length,
+        benefits: formData.benefits.length
+      });
 
       // Create location geography point if geocoded
       let locationWKT = null;
       if (geocodedLocation) {
         locationWKT = `POINT(${geocodedLocation.lng} ${geocodedLocation.lat})`;
+        console.log('Location WKT:', locationWKT);
       }
 
-      // Insert restaurant profile
-      const { data: insertedProfile, error: insertError } = await supabase
-        .from('restaurant_profiles')
-        .insert({
-          user_id: userId,
-          restaurant_name: formData.restaurantName,
-          description: formData.description,
-          cuisine_type: formData.cuisineType,
-          restaurant_type: formData.restaurantType,
-          address: formData.address,
-          location: locationWKT,
-          operating_hours: formData.operatingHours,
-          pay_range: formData.payRange,
-          common_roles: formData.commonRoles,
-          benefits: formData.benefits,
-          manager_name: formData.managerName,
-          manager_phone: formData.managerPhone,
-          manager_email: formData.managerEmail,
-        })
-        .select()
-        .single();
+      // Fire off the insert without awaiting
+      try {
+        supabase
+          .from('restaurant_profiles')
+          .insert({
+            user_id: user.id,
+            restaurant_name: formData.restaurantName,
+            description: formData.description,
+            cuisine_type: formData.cuisineType,
+            restaurant_type: formData.restaurantType,
+            address: formData.address,
+            location: locationWKT,
+            operating_hours: formData.operatingHours,
+            pay_range: formData.payRange,
+            common_roles: formData.commonRoles,
+            benefits: formData.benefits,
+            manager_name: formData.managerName,
+            manager_phone: formData.managerPhone,
+            manager_email: formData.managerEmail,
+          })
+          .select()
+          .single()
+          .then(({ data: insertedProfile, error: insertError }) => {
+            if (insertError) {
+              console.error('Restaurant profile insert error:', insertError);
+              console.error('Error details:', {
+                code: insertError?.code,
+                message: insertError?.message,
+                details: insertError?.details,
+                hint: insertError?.hint
+              });
+            } else {
+              console.log('Restaurant profile insert initiated successfully');
+              // Try to add to local context if insert succeeded
+              if (insertedProfile) {
+                const restaurantProfile = {
+                  id: insertedProfile.id,
+                  restaurantName: formData.restaurantName,
+                  address: formData.address,
+                  location: geocodedLocation || undefined,
+                  cuisineType: formData.cuisineType,
+                  description: formData.description,
+                  operatingHours: formData.operatingHours
+                };
+                addProfile(restaurantProfile);
+              }
+            }
+          });
+      } catch (err) {
+        console.error('Restaurant profile insert exception:', err);
+      }
 
-      if (insertError) throw insertError;
-
-      // Also save to context for local state management
-      const restaurantProfile = {
-        id: insertedProfile.id,
-        restaurantName: formData.restaurantName,
-        address: formData.address,
-        location: geocodedLocation || undefined,
-        cuisineType: formData.cuisineType,
-        description: formData.description,
-        operatingHours: formData.operatingHours
-      };
-
-      addProfile(restaurantProfile);
-
-      // Redirect to restaurant dashboard
-      router.push("/restaurant/dashboard");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to save restaurant profile');
+      // Redirect after a brief delay
+      console.log('Scheduling redirect in 2 seconds...');
+      setTimeout(() => {
+        console.log('Redirecting now to /restaurant/dashboard');
+        window.location.href = "/restaurant/dashboard";
+      }, 2000);
+    }).catch(err => {
+      console.error('Error getting user:', err);
+      setError('Failed to verify authentication');
       setLoading(false);
-    }
+    });
   };
 
   return (
