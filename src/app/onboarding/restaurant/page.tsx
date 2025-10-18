@@ -22,7 +22,6 @@ export default function RestaurantOnboarding() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
   const [geocodedLocation, setGeocodedLocation] = useState<{ lat: number; lng: number; displayName?: string } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [formData, setFormData] = useState({
@@ -108,7 +107,6 @@ export default function RestaurantOnboarding() {
 
         if (user) {
           console.log('User authenticated in restaurant onboarding:', user.id);
-          setUserId(user.id);
           return;
         }
 

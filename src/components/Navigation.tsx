@@ -8,11 +8,20 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
-  const { user, userType, signOut } = useAuth();
+  const { user, userType, signOut, loading } = useAuth();
 
-  // Don't render if user or userType not loaded
-  if (!user || !userType) {
-    return null;
+  // Show a placeholder header while loading
+  if (loading || !user || !userType) {
+    return (
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex items-center px-4 py-3">
+          <div className="ml-4 flex items-center">
+            <span className="text-xl font-bold text-blue-600 dark:text-blue-400">ShiftServe</span>
+          </div>
+        </div>
+        <div className="h-14"></div>
+      </header>
+    );
   }
 
   const userEmail = user.email || '';
