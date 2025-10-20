@@ -69,7 +69,7 @@ export default function DiscoverShifts() {
           return;
         }
 
-        if (shiftsData && userLocation) {
+        if (shiftsData) {
           // Transform database shifts to match Shift interface
           shiftsData.forEach((dbShift) => {
             // Calculate distance if location data exists
@@ -114,11 +114,10 @@ export default function DiscoverShifts() {
       }
     };
 
-    if (userLocation) {
-      fetchShifts();
-    }
+    // Fetch shifts regardless of userLocation
+    fetchShifts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLocation]);
+  }, []);
 
   // Get user's geolocation on mount
   useEffect(() => {
