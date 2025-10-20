@@ -11,35 +11,19 @@ export default function WorkerHomePage() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      const supabase = createClient();
+
       try {
-        const supabase = createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
           console.error('Auth error:', authError);
-          setLoading(false);
           router.push('/auth/login?type=worker');
           return;
         }
-
-        // Check if user has a restaurant profile instead
-        const { data: restaurantProfile } = await supabase
-          .from('restaurant_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        // If user has a restaurant profile, redirect to restaurant home
-        if (restaurantProfile) {
-          console.log('User is a restaurant, redirecting to restaurant home');
-          setLoading(false);
-          router.push('/restaurant/home');
-          return;
-        }
-
-        setLoading(false);
       } catch (err) {
         console.error('Unexpected error checking auth:', err);
+      } finally {
         setLoading(false);
       }
     };

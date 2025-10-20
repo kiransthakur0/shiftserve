@@ -60,29 +60,14 @@ export default function RestaurantProfilePage() {
 
   useEffect(() => {
     const loadProfile = async () => {
+      const supabase = createClient();
+
       try {
-        const supabase = createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
           console.error('Auth error:', authError);
-          setLoading(false);
           router.push('/auth/login?type=restaurant');
-          return;
-        }
-
-        // Check if user has a worker profile instead
-        const { data: workerProfile } = await supabase
-          .from('worker_profiles')
-          .select('id')
-          .eq('user_id', user.id)
-          .single();
-
-        // If user has a worker profile, redirect to worker profile page
-        if (workerProfile) {
-          console.log('User is a worker, redirecting to worker profile');
-          setLoading(false);
-          router.push('/worker/profile');
           return;
         }
 
@@ -96,7 +81,7 @@ export default function RestaurantProfilePage() {
           .eq('user_id', user.id)
           .single();
 
-        // Don't treat "no profile found" as an error - just means it's a new profile
+        // Ignore "no profile found" error - just means it's a new profile
         if (profileError && profileError.code !== 'PGRST116') {
           console.error('Error loading profile:', profileError);
         }
@@ -117,11 +102,10 @@ export default function RestaurantProfilePage() {
             benefits: existingProfile.benefits || []
           });
         }
-
-        setLoading(false);
       } catch (err) {
         console.error('Unexpected error loading profile:', err);
         setError('Failed to load profile. Please refresh the page.');
+      } finally {
         setLoading(false);
       }
     };
