@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createDebouncedGeocoder } from "../../../services/geocoding";
 import { useRestaurantProfiles } from "../../../context/RestaurantProfilesContext";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const cuisineTypes = [
   "American", "Italian", "Mexican", "Asian", "Mediterranean",
@@ -18,6 +19,7 @@ const restaurantTypes = [
 
 export default function RestaurantOnboarding() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const { addProfile } = useRestaurantProfiles();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,39 @@ export default function RestaurantOnboarding() {
     benefits: [] as string[]
   });
 
+  // Geocode address when it changes (must be before early returns)
+  useEffect(() => {
+    const debouncedGeocoder = createDebouncedGeocoder(1500);
+
+    if (formData.address && formData.address.trim().length > 5) {
+      setIsGeocoding(true);
+      debouncedGeocoder(formData.address, (result) => {
+        setGeocodedLocation(result);
+        setIsGeocoding(false);
+      });
+    } else {
+      setGeocodedLocation(null);
+      setIsGeocoding(false);
+    }
+  }, [formData.address]);
+
+  // Show loading screen while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-16 h-16 border-4 border-orange-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400 text-lg">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to signup if not authenticated
+  if (!user) {
+    router.push('/auth/signup?type=restaurant');
+    return null;
+  }
 
   const roles = [
     "Server", "Bartender", "Host/Hostess", "Busser",
@@ -92,52 +127,6 @@ export default function RestaurantOnboarding() {
   const prevStep = () => {
     if (step > 1) setStep(step - 1);
   };
-
-  // Check authentication
-  useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient();
-
-      // Try multiple times to get the user session (it might take a moment after signup)
-      let attempts = 0;
-      const maxAttempts = 10;
-
-      while (attempts < maxAttempts) {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (user) {
-          console.log('User authenticated in restaurant onboarding:', user.id);
-          return;
-        }
-
-        // Wait 500ms before trying again
-        await new Promise(resolve => setTimeout(resolve, 500));
-        attempts++;
-      }
-
-      // If we still don't have a user after all attempts, redirect to signup
-      console.error('No user found after multiple attempts');
-      router.push('/auth/signup?type=restaurant');
-    };
-
-    checkAuth();
-  }, [router]);
-
-  // Geocode address when it changes
-  useEffect(() => {
-    const debouncedGeocoder = createDebouncedGeocoder(1500);
-
-    if (formData.address && formData.address.trim().length > 5) {
-      setIsGeocoding(true);
-      debouncedGeocoder(formData.address, (result) => {
-        setGeocodedLocation(result);
-        setIsGeocoding(false);
-      });
-    } else {
-      setGeocodedLocation(null);
-      setIsGeocoding(false);
-    }
-  }, [formData.address]);
 
   const handleSubmit = () => {
     setLoading(true);

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const certifications = [
   "Food Safety Certification",
@@ -41,6 +42,7 @@ const roles = [
 
 export default function WorkerOnboarding() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,34 +63,23 @@ export default function WorkerOnboarding() {
     }
   });
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient();
+  // Show loading screen while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400 text-lg">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
-      // Try multiple times to get the user session (it might take a moment after signup)
-      let attempts = 0;
-      const maxAttempts = 10;
-
-      while (attempts < maxAttempts) {
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (user) {
-          console.log('User authenticated in onboarding:', user.id);
-          return; // User is authenticated, stop checking
-        }
-
-        // Wait 500ms before trying again
-        await new Promise(resolve => setTimeout(resolve, 500));
-        attempts++;
-      }
-
-      // If we still don't have a user after all attempts, redirect to signup
-      console.error('No user found after multiple attempts');
-      router.push('/auth/signup?type=worker');
-    };
-
-    checkAuth();
-  }, [router]);
+  // Redirect to signup if not authenticated
+  if (!user) {
+    router.push('/auth/signup?type=worker');
+    return null;
+  }
 
   const handleCertificationToggle = (cert: string) => {
     setFormData(prev => ({
