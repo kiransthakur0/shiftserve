@@ -228,7 +228,7 @@ export default function RestaurantOnboarding() {
       console.log('Scheduling redirect in 2 seconds...');
       setTimeout(() => {
         console.log('Redirecting now to /restaurant/dashboard');
-        window.location.href = "/restaurant/dashboard";
+        router.push("/restaurant/dashboard");
       }, 2000);
     }).catch(err => {
       console.error('Error getting user:', err);

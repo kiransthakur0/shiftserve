@@ -196,7 +196,7 @@ export default function WorkerOnboarding() {
       console.log('Scheduling redirect in 2 seconds...');
       setTimeout(() => {
         console.log('Redirecting now to /discover');
-        window.location.href = "/discover";
+        router.push("/discover");
       }, 2000);
     }).catch(err => {
       console.error('Error getting user:', err);

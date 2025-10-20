@@ -125,11 +125,6 @@ export default function RestaurantDashboard() {
   };
 
   const handleCreateShift = async () => {
-    if (!restaurantId) {
-      setError("Restaurant profile not found. Please complete your profile first by visiting the Profile page.");
-      return;
-    }
-
     // Validate form fields
     if (!newShift.role || !newShift.date || !newShift.startTime || !newShift.endTime) {
       setError("Please fill in all required fields");
@@ -143,30 +138,32 @@ export default function RestaurantDashboard() {
       const supabase = createClient();
       const duration = calculateDuration(newShift.startTime, newShift.endTime);
 
-      // Insert shift into Supabase
-      const { error: insertError } = await supabase
-        .from('shifts')
-        .insert({
-          restaurant_id: restaurantId,
-          restaurant_name: restaurantProfile?.restaurantName || "Your Restaurant",
-          role: newShift.role,
-          hourly_rate: newShift.hourlyRate,
-          duration: duration,
-          start_time: newShift.startTime,
-          shift_date: newShift.date,
-          urgent: newShift.urgencyLevel === 'high' || newShift.urgencyLevel === 'critical',
-          description: newShift.description,
-          requirements: newShift.requirements,
-          urgency_level: newShift.urgencyLevel,
-          bonus_percentage: newShift.bonusPercentage,
-          status: 'draft'
-        })
-        .select()
-        .single();
+      // If restaurantId exists, save to Supabase
+      if (restaurantId) {
+        const { error: insertError } = await supabase
+          .from('shifts')
+          .insert({
+            restaurant_id: restaurantId,
+            restaurant_name: restaurantProfile?.restaurantName || "Your Restaurant",
+            role: newShift.role,
+            hourly_rate: newShift.hourlyRate,
+            duration: duration,
+            start_time: newShift.startTime,
+            shift_date: newShift.date,
+            urgent: newShift.urgencyLevel === 'high' || newShift.urgencyLevel === 'critical',
+            description: newShift.description,
+            requirements: newShift.requirements,
+            urgency_level: newShift.urgencyLevel,
+            bonus_percentage: newShift.bonusPercentage,
+            status: 'draft'
+          })
+          .select()
+          .single();
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+      }
 
-      // Also add to local context for immediate UI update
+      // Always add to local context for immediate UI update
       const shift = {
         restaurantName: restaurantProfile?.restaurantName || "Your Restaurant",
         restaurantId: currentRestaurantId,

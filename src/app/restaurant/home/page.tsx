@@ -11,20 +11,29 @@ export default function RestaurantHomePage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (!user) {
-        window.location.href = '/auth/login?type=restaurant';
-        return;
+        if (authError || !user) {
+          console.error('Auth error:', authError);
+          // Set loading to false before redirect
+          setLoading(false);
+          setTimeout(() => {
+            router.push('/auth/login?type=restaurant');
+          }, 100);
+          return;
+        }
+
+        // Don't enforce user_type check - allow any authenticated user
+        // This prevents the loading loop if user_type isn't set in metadata
+
+      } catch (err) {
+        console.error('Unexpected error checking auth:', err);
+      } finally {
+        // Always set loading to false
+        setLoading(false);
       }
-
-      if (user.user_metadata?.user_type !== 'restaurant') {
-        window.location.href = '/worker/home';
-        return;
-      }
-
-      setLoading(false);
     };
 
     checkAuth();

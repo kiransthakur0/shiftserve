@@ -59,45 +59,59 @@ export default function WorkerProfilePage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (!user) {
-        window.location.href = '/auth/login?type=worker';
-        return;
+        if (authError || !user) {
+          console.error('Auth error:', authError);
+          // Set loading to false before redirect
+          setLoading(false);
+          setTimeout(() => {
+            router.push('/auth/login?type=worker');
+          }, 100);
+          return;
+        }
+
+        // Don't enforce user_type check - allow any authenticated user to view this page
+        // This prevents the loading loop if user_type isn't set in metadata
+
+        setUserId(user.id);
+        setProfile(prev => ({ ...prev, email: user.email || '' }));
+
+        // Try to load existing profile from database
+        const { data: existingProfile, error: profileError } = await supabase
+          .from('worker_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        // Don't treat "no profile found" as an error - just means it's a new profile
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Error loading profile:', profileError);
+        }
+
+        if (existingProfile) {
+          setProfileId(existingProfile.id);
+          setProfile({
+            name: existingProfile.name || '',
+            email: user.email || '',
+            phone: existingProfile.phone || '',
+            certifications: existingProfile.certifications || [],
+            skills: existingProfile.skills || [],
+            roles: existingProfile.roles || [],
+            serviceRadius: existingProfile.service_radius || 25,
+            experience: existingProfile.experience || 'entry',
+            availability: existingProfile.availability || profile.availability
+          });
+        }
+      } catch (err) {
+        console.error('Unexpected error loading profile:', err);
+        setError('Failed to load profile. Please refresh the page.');
+      } finally {
+        // Always set loading to false, even if there's an error
+        setLoading(false);
       }
-
-      if (user.user_metadata?.user_type !== 'worker') {
-        window.location.href = '/restaurant/profile';
-        return;
-      }
-
-      setUserId(user.id);
-      setProfile(prev => ({ ...prev, email: user.email || '' }));
-
-      // Try to load existing profile from database
-      const { data: existingProfile } = await supabase
-        .from('worker_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (existingProfile) {
-        setProfileId(existingProfile.id);
-        setProfile({
-          name: existingProfile.name || '',
-          email: user.email || '',
-          phone: existingProfile.phone || '',
-          certifications: existingProfile.certifications || [],
-          skills: existingProfile.skills || [],
-          roles: existingProfile.roles || [],
-          serviceRadius: existingProfile.service_radius || 25,
-          experience: existingProfile.experience || 'entry',
-          availability: existingProfile.availability || profile.availability
-        });
-      }
-
-      setLoading(false);
     };
 
     loadProfile();

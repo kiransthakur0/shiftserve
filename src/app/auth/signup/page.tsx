@@ -2,11 +2,12 @@
 
 import { useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 function SignUpForm() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const userType = searchParams.get('type') || 'worker'
 
   const [email, setEmail] = useState('')
@@ -87,10 +88,10 @@ function SignUpForm() {
       // Redirect to appropriate onboarding
       if (confirmedUserType === 'worker') {
         console.log('Redirecting to /onboarding/worker')
-        window.location.href = '/onboarding/worker'
+        router.push('/onboarding/worker')
       } else {
         console.log('Redirecting to /onboarding/restaurant')
-        window.location.href = '/onboarding/restaurant'
+        router.push('/onboarding/restaurant')
       }
     } catch (err: unknown) {
       console.error('Signup error:', err)

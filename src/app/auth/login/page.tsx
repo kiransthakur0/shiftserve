@@ -2,12 +2,13 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { User } from '@supabase/supabase-js'
 
 function LoginForm() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const userType = searchParams.get('type') || 'worker'
 
   const [email, setEmail] = useState('')
@@ -97,11 +98,11 @@ function LoginForm() {
         console.log('Using metadata user_type for redirect')
         if (metadataUserType === 'worker') {
           console.log('Redirecting to /discover')
-          window.location.href = '/discover'
+          router.push('/discover')
           return
         } else if (metadataUserType === 'restaurant') {
           console.log('Redirecting to /restaurant/dashboard')
-          window.location.href = '/restaurant/dashboard'
+          router.push('/restaurant/dashboard')
           return
         }
       }
@@ -141,10 +142,10 @@ function LoginForm() {
 
       if (userTypeFromProfile === 'worker') {
         console.log('Redirecting to /discover')
-        window.location.href = '/discover'
+        router.push('/discover')
       } else if (userTypeFromProfile === 'restaurant') {
         console.log('Redirecting to /restaurant/dashboard')
-        window.location.href = '/restaurant/dashboard'
+        router.push('/restaurant/dashboard')
       } else {
         throw new Error('Invalid user type. Please contact support.')
       }

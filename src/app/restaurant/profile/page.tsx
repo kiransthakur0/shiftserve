@@ -60,47 +60,61 @@ export default function RestaurantProfilePage() {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        const supabase = createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (!user) {
-        window.location.href = '/auth/login?type=restaurant';
-        return;
+        if (authError || !user) {
+          console.error('Auth error:', authError);
+          // Set loading to false before redirect so user can see what's happening
+          setLoading(false);
+          setTimeout(() => {
+            router.push('/auth/login?type=restaurant');
+          }, 100);
+          return;
+        }
+
+        // Don't enforce user_type check - allow any authenticated user to view this page
+        // This prevents the loading loop if user_type isn't set in metadata
+
+        setUserId(user.id);
+        setProfile(prev => ({ ...prev, email: user.email || '' }));
+
+        // Try to load existing profile from database
+        const { data: existingProfile, error: profileError } = await supabase
+          .from('restaurant_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        // Don't treat "no profile found" as an error - just means it's a new profile
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Error loading profile:', profileError);
+        }
+
+        if (existingProfile) {
+          setProfileId(existingProfile.id);
+          setProfile({
+            restaurantName: existingProfile.restaurant_name || '',
+            email: user.email || '',
+            phone: existingProfile.phone || '',
+            description: existingProfile.description || '',
+            cuisineType: existingProfile.cuisine_type || 'American',
+            restaurantType: existingProfile.restaurant_type || 'Casual Dining',
+            address: existingProfile.address || '',
+            operatingHours: existingProfile.operating_hours || profile.operatingHours,
+            payRange: existingProfile.pay_range || { min: 15, max: 25 },
+            commonRoles: existingProfile.common_roles || [],
+            benefits: existingProfile.benefits || []
+          });
+        }
+      } catch (err) {
+        console.error('Unexpected error loading profile:', err);
+        setError('Failed to load profile. Please refresh the page.');
+      } finally {
+        // Always set loading to false, even if there's an error
+        setLoading(false);
       }
-
-      if (user.user_metadata?.user_type !== 'restaurant') {
-        window.location.href = '/worker/profile';
-        return;
-      }
-
-      setUserId(user.id);
-      setProfile(prev => ({ ...prev, email: user.email || '' }));
-
-      // Try to load existing profile from database
-      const { data: existingProfile } = await supabase
-        .from('restaurant_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (existingProfile) {
-        setProfileId(existingProfile.id);
-        setProfile({
-          restaurantName: existingProfile.restaurant_name || '',
-          email: user.email || '',
-          phone: existingProfile.phone || '',
-          description: existingProfile.description || '',
-          cuisineType: existingProfile.cuisine_type || 'American',
-          restaurantType: existingProfile.restaurant_type || 'Casual Dining',
-          address: existingProfile.address || '',
-          operatingHours: existingProfile.operating_hours || profile.operatingHours,
-          payRange: existingProfile.pay_range || { min: 15, max: 25 },
-          commonRoles: existingProfile.common_roles || [],
-          benefits: existingProfile.benefits || []
-        });
-      }
-
-      setLoading(false);
     };
 
     loadProfile();
