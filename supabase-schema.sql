@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS profiles (
 CREATE TABLE IF NOT EXISTS worker_profiles (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE UNIQUE NOT NULL,
+  name TEXT,
+  email TEXT,
+  phone TEXT,
   certifications TEXT[] DEFAULT '{}',
   skills TEXT[] DEFAULT '{}',
   roles TEXT[] DEFAULT '{}',
@@ -55,6 +58,8 @@ CREATE TABLE IF NOT EXISTS restaurant_profiles (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE UNIQUE NOT NULL,
   restaurant_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
   description TEXT,
   cuisine_type TEXT,
   restaurant_type TEXT,
