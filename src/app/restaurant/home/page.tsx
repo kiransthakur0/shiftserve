@@ -17,21 +17,29 @@ export default function RestaurantHomePage() {
 
         if (authError || !user) {
           console.error('Auth error:', authError);
-          // Set loading to false before redirect
           setLoading(false);
-          setTimeout(() => {
-            router.push('/auth/login?type=restaurant');
-          }, 100);
+          router.push('/auth/login?type=restaurant');
           return;
         }
 
-        // Don't enforce user_type check - allow any authenticated user
-        // This prevents the loading loop if user_type isn't set in metadata
+        // Check if user has a worker profile instead
+        const { data: workerProfile } = await supabase
+          .from('worker_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
 
+        // If user has a worker profile, redirect to worker home
+        if (workerProfile) {
+          console.log('User is a worker, redirecting to worker home');
+          setLoading(false);
+          router.push('/worker/home');
+          return;
+        }
+
+        setLoading(false);
       } catch (err) {
         console.error('Unexpected error checking auth:', err);
-      } finally {
-        // Always set loading to false
         setLoading(false);
       }
     };

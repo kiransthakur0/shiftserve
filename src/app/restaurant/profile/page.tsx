@@ -66,21 +66,30 @@ export default function RestaurantProfilePage() {
 
         if (authError || !user) {
           console.error('Auth error:', authError);
-          // Set loading to false before redirect so user can see what's happening
           setLoading(false);
-          setTimeout(() => {
-            router.push('/auth/login?type=restaurant');
-          }, 100);
+          router.push('/auth/login?type=restaurant');
           return;
         }
 
-        // Don't enforce user_type check - allow any authenticated user to view this page
-        // This prevents the loading loop if user_type isn't set in metadata
+        // Check if user has a worker profile instead
+        const { data: workerProfile } = await supabase
+          .from('worker_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .single();
+
+        // If user has a worker profile, redirect to worker profile page
+        if (workerProfile) {
+          console.log('User is a worker, redirecting to worker profile');
+          setLoading(false);
+          router.push('/worker/profile');
+          return;
+        }
 
         setUserId(user.id);
         setProfile(prev => ({ ...prev, email: user.email || '' }));
 
-        // Try to load existing profile from database
+        // Try to load existing restaurant profile from database
         const { data: existingProfile, error: profileError } = await supabase
           .from('restaurant_profiles')
           .select('*')
@@ -108,11 +117,11 @@ export default function RestaurantProfilePage() {
             benefits: existingProfile.benefits || []
           });
         }
+
+        setLoading(false);
       } catch (err) {
         console.error('Unexpected error loading profile:', err);
         setError('Failed to load profile. Please refresh the page.');
-      } finally {
-        // Always set loading to false, even if there's an error
         setLoading(false);
       }
     };
