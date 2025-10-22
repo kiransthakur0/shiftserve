@@ -10,14 +10,32 @@ export default function Navigation() {
   const pathname = usePathname();
   const { user, userType, signOut, loading } = useAuth();
 
+  // Debug logging - Always log the current state
+  console.log('Navigation render check:', {
+    loading,
+    hasUser: !!user,
+    userEmail: user?.email,
+    userType,
+    pathname,
+    willRender: !loading && !!user && !!userType
+  });
+
   // Don't render navigation if no user/userType (only on initial load or logged out)
   if (loading || !user || !userType) {
     // Log for debugging when navigation doesn't render
     if (!loading && user && !userType) {
-      console.warn('Navigation hidden: user exists but userType is missing', { user: user.email, userType });
+      console.warn('⚠️ Navigation hidden: user exists but userType is missing', { user: user.email, userType });
+    }
+    if (!loading && !user) {
+      console.log('ℹ️ Navigation hidden: No user logged in');
+    }
+    if (loading) {
+      console.log('ℹ️ Navigation hidden: Still loading auth state');
     }
     return null;
   }
+
+  console.log('✅ Navigation WILL RENDER for:', userType);
 
   const userEmail = user?.email || 'Loading...';
 
