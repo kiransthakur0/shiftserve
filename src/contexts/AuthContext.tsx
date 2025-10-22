@@ -24,24 +24,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const fetchUserType = async (userId: string): Promise<UserType> => {
+  const fetchUserType = async (userId: string, userMetadata?: any): Promise<UserType> => {
     try {
+      console.log('🔍 Fetching user type for user:', userId);
+      console.log('📦 User metadata:', userMetadata);
+
       const supabase = createClient();
-      const { data, error } = await supabase
+
+      // Add a timeout to the query
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.warn('⏱️ Database query timeout - using metadata fallback');
+          resolve(null);
+        }, 3000);
+      });
+
+      const queryPromise = supabase
         .from('profiles')
         .select('user_type')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.error('Error fetching user type from profiles:', error);
-        return null;
+      const result = await Promise.race([queryPromise, timeoutPromise]);
+
+      if (result === null) {
+        // Timeout occurred, use metadata
+        const metadataType = userMetadata?.user_type as UserType;
+        console.log('⚠️ Using user_type from metadata:', metadataType);
+        return metadataType || null;
       }
 
+      const { data, error } = result;
+
+      if (error) {
+        console.error('❌ Error fetching user type from profiles:', error);
+        console.error('Error code:', error.code, 'Error message:', error.message);
+
+        // Fallback to user metadata
+        const metadataType = userMetadata?.user_type as UserType;
+        console.log('🔄 Falling back to metadata user_type:', metadataType);
+        return metadataType || null;
+      }
+
+      console.log('✅ User type fetched successfully from database:', data?.user_type);
       return data?.user_type as UserType;
     } catch (err) {
-      console.error('Error in fetchUserType:', err);
-      return null;
+      console.error('❌ Exception in fetchUserType:', err);
+      // Last resort: use metadata
+      const metadataType = userMetadata?.user_type as UserType;
+      console.log('🔄 Exception - falling back to metadata:', metadataType);
+      return metadataType || null;
     }
   };
 
@@ -57,27 +89,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient();
+    let isMounted = true;
+
+    // Safety timeout to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.error('⏱️ Auth loading timeout - forcing loading to false after 10 seconds');
+        setLoading(false);
+      }
+    }, 10000);
 
     // Get initial session
     const initializeAuth = async () => {
+      console.log('🚀 Initializing auth...');
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
+        console.log('📝 Current user:', currentUser ? currentUser.email : 'none');
 
         if (currentUser) {
           setUser(currentUser);
-          // Fetch user type from database profiles table
-          const type = await fetchUserType(currentUser.id);
+          // Fetch user type from database profiles table (with metadata fallback)
+          const type = await fetchUserType(currentUser.id, currentUser.user_metadata);
+          console.log('📋 User type result:', type);
           setUserType(type);
         } else {
+          console.log('ℹ️ No user found, setting state to null');
           setUser(null);
           setUserType(null);
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('❌ Error initializing auth:', error);
         setUser(null);
         setUserType(null);
       } finally {
-        setLoading(false);
+        console.log('✅ Auth initialization complete, setting loading to false');
+        if (isMounted) {
+          clearTimeout(loadingTimeout);
+          setLoading(false);
+        }
       }
     };
 
@@ -85,9 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔔 Auth state changed:', event);
       if (session?.user) {
         setUser(session.user);
-        const type = await fetchUserType(session.user.id);
+        const type = await fetchUserType(session.user.id, session.user.user_metadata);
         setUserType(type);
       } else {
         setUser(null);
@@ -97,6 +147,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      console.log('🧹 Cleaning up auth subscription');
+      isMounted = false;
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
