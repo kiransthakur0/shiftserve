@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const fetchUserType = async (userId: string, userMetadata?: any): Promise<UserType> => {
+  const fetchUserType = async (userId: string, userMetadata?: Record<string, unknown>): Promise<UserType> => {
     try {
       console.log('🔍 Fetching user type for user:', userId);
       console.log('📦 User metadata:', userMetadata);
