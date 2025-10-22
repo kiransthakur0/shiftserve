@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +11,11 @@ export default function Navigation() {
   const { user, userType, signOut, loading } = useAuth();
 
   // Don't render navigation if no user/userType (only on initial load or logged out)
-  if (!loading && (!user || !userType)) {
+  if (loading || !user || !userType) {
+    // Log for debugging when navigation doesn't render
+    if (!loading && user && !userType) {
+      console.warn('Navigation hidden: user exists but userType is missing', { user: user.email, userType });
+    }
     return null;
   }
 

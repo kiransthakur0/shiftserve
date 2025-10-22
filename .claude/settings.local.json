@@ -23,7 +23,8 @@
       "Bash(npm:*)",
       "Bash(if not exist \"src\\app\\worker\" mkdir \"src\\app\\worker\")",
       "Bash(if not exist \"src\\app\\worker\\home\" mkdir \"src\\app\\worker\\home\")",
-      "Bash(if exist \".next\" rmdir /s /q .next)"
+      "Bash(if exist \".next\" rmdir /s /q .next)",
+      "Bash(npx tsx:*)"
     ],
     "deny": [],
     "ask": []
