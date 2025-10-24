@@ -225,7 +225,7 @@ export default function WorkerProfilePage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navigation />
 
-      <main className="max-w-4xl mx-auto px-4 py-8 pt-20">
+      <main className="max-w-4xl mx-auto px-4 py-8 pt-28">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             Worker Profile

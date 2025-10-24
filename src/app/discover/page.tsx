@@ -194,7 +194,7 @@ export default function DiscoverShifts() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navigation />
-      <div className="flex h-screen pt-14">
+      <div className="flex h-screen pt-28">
         {/* Filters Sidebar */}
         <div className="w-80 bg-white dark:bg-gray-800 shadow-lg overflow-y-auto">
           <div className="p-6">

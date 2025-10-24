@@ -160,6 +160,16 @@ function LoginForm() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center px-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-md border border-gray-200 dark:border-gray-700">
         <div className="text-center mb-8">
+          <div className="mb-6">
+            <img
+              src="/loginpage_logo.png"
+              alt="ShiftServe Logo"
+              className="mx-auto h-24 w-auto mb-4"
+            />
+            <p className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+              Shifts Happen. Find your next shift today.
+            </p>
+          </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             Welcome Back
           </h1>

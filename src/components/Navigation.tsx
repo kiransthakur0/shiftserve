@@ -70,7 +70,11 @@ export default function Navigation() {
             </div>
           </button>
           <div className="ml-4 flex items-center">
-            <span className="text-xl font-bold text-blue-600 dark:text-blue-400">ShiftServe</span>
+            <img
+              src="/corner_logo.png"
+              alt="ShiftServe Logo"
+              className="h-20 w-auto"
+            />
           </div>
         </div>
       </header>
@@ -92,7 +96,11 @@ export default function Navigation() {
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <span className="text-xl font-bold text-blue-600 dark:text-blue-400">ShiftServe</span>
+            <img
+              src="/corner_logo.png"
+              alt="ShiftServe Logo"
+              className="h-20 w-auto"
+            />
             <button
               onClick={() => setIsOpen(false)}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
